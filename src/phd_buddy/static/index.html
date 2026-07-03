@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PhD Buddy</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">PhD Buddy</p>
+            <h1>Onboarding Profile</h1>
+          </div>
+          <div class="status-pill" id="saveStatus">Local draft</div>
+        </header>
+
+        <div class="content-grid">
+          <form class="panel form-panel" id="onboardingForm">
+            <div class="panel-header">
+              <div>
+                <h2>Research Identity</h2>
+                <p>major field -> subdomains + venues</p>
+              </div>
+              <button class="icon-button" type="button" id="loadLatest" title="Load latest saved profile">
+                <span aria-hidden="true">↻</span>
+                <span class="sr-only">Load latest saved profile</span>
+              </button>
+            </div>
+
+            <div class="field-grid">
+              <label>
+                <span>Major field</span>
+                <input name="major_field" required placeholder="Machine Learning" />
+              </label>
+              <label>
+                <span>Google Scholar profile</span>
+                <input name="google_scholar_url" type="url" placeholder="https://scholar.google.com/citations?user=..." />
+              </label>
+            </div>
+
+            <label>
+              <span>Subdomains</span>
+              <textarea name="subdomains" required rows="3" placeholder="Information Retrieval, NLP, recommender systems"></textarea>
+            </label>
+
+            <label>
+              <span>Interested venues / conferences</span>
+              <textarea name="venues" required rows="3" placeholder="ACL, CHI, NeurIPS"></textarea>
+            </label>
+
+            <label>
+              <span>Known seed papers</span>
+              <textarea name="known_seed_papers" rows="3" placeholder="One paper per line, or comma-separated"></textarea>
+            </label>
+
+            <label>
+              <span>Recent-search keywords</span>
+              <textarea name="recent_keywords" rows="2" placeholder="agentic search, citation verification"></textarea>
+            </label>
+
+            <footer class="form-actions">
+              <button class="secondary-button" type="reset">Reset</button>
+              <button class="primary-button" type="submit">Generate Onboarding</button>
+            </footer>
+          </form>
+
+          <aside class="panel preview-panel">
+            <div class="panel-header">
+              <div>
+                <h2>Saved Onboarding</h2>
+                <p>canonical JSON + vault markdown</p>
+              </div>
+            </div>
+
+            <div class="output-paths" id="outputPaths" hidden></div>
+
+            <div class="markdown-preview">
+              <div class="preview-toolbar">
+                <span>Vault note</span>
+                <button class="secondary-button small" type="button" id="copyMarkdown">Copy</button>
+              </div>
+              <pre id="markdownOutput">Complete the profile to generate the onboarding note.</pre>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js" type="module"></script>
+  </body>
+</html>
