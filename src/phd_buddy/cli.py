@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .onboarding import OnboardingPlan, ResearchProfile, load_plan, render_markdown, save_plan
+from .services.profile import OnboardingPlan, ResearchProfile, load_plan, render_markdown, save_plan
 
 
 def main() -> None:
@@ -44,7 +44,7 @@ def main() -> None:
     if args.command == "serve":
         import uvicorn
 
-        uvicorn.run("phd_buddy.web:app", host=args.host, port=args.port, reload=args.reload)
+        uvicorn.run("phd_buddy.app:app", host=args.host, port=args.port, reload=args.reload)
         return
 
 

@@ -2,13 +2,14 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from phd_buddy import web
+from phd_buddy.app import app
+from phd_buddy.routers import profile as profile_router
 
 
 def test_create_onboarding_writes_files(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(web, "DEFAULT_OUTPUT_DIR", tmp_path)
-    monkeypatch.setattr(web, "DEFAULT_PROFILE_PATH", tmp_path / "onboarding_profile.json")
-    client = TestClient(web.app)
+    monkeypatch.setattr(profile_router, "DEFAULT_OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(profile_router, "DEFAULT_PROFILE_PATH", tmp_path / "onboarding_profile.json")
+    client = TestClient(app)
 
     response = client.post(
         "/api/onboarding",
@@ -32,10 +33,19 @@ def test_create_onboarding_writes_files(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_latest_onboarding_returns_404_when_missing(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setattr(web, "DEFAULT_OUTPUT_DIR", tmp_path)
-    monkeypatch.setattr(web, "DEFAULT_PROFILE_PATH", tmp_path / "onboarding_profile.json")
-    client = TestClient(web.app)
+    monkeypatch.setattr(profile_router, "DEFAULT_OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(profile_router, "DEFAULT_PROFILE_PATH", tmp_path / "onboarding_profile.json")
+    client = TestClient(app)
 
     response = client.get("/api/onboarding/latest")
 
     assert response.status_code == 404
+
+
+def test_health_endpoint() -> None:
+    client = TestClient(app)
+
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

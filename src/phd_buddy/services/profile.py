@@ -1,13 +1,14 @@
-"""Onboarding workflow primitives for PhD Buddy."""
+"""Onboarding profile domain logic (moved from the original ``phd_buddy.onboarding``)."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-import json
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+from ..storage.vault import read_json, write_dual_format
 
 
 GROUNDING_RULES = {
@@ -26,6 +27,8 @@ DEEP_DIVE_LENSES = [
     "Experiments vs. claims",
     "Generalizability",
 ]
+
+PROFILE_STEM = "onboarding_profile"
 
 
 @dataclass(frozen=True)
@@ -111,22 +114,13 @@ class OnboardingPlan:
 
 
 def save_plan(plan: OnboardingPlan, output_dir: Path) -> tuple[Path, Path]:
-    """Write canonical JSON and vault-friendly markdown."""
+    """Write the plan to the vault as canonical JSON plus vault-friendly markdown."""
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    json_path = output_dir / "onboarding_profile.json"
-    markdown_path = output_dir / "onboarding_profile.md"
-
-    json_path.write_text(
-        json.dumps(plan.to_dict(), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    markdown_path.write_text(render_markdown(plan), encoding="utf-8")
-    return json_path, markdown_path
+    return write_dual_format(output_dir, PROFILE_STEM, plan.to_dict(), render_markdown(plan))
 
 
 def load_plan(path: Path) -> OnboardingPlan:
-    return OnboardingPlan.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    return OnboardingPlan.from_dict(read_json(path))
 
 
 def render_markdown(plan: OnboardingPlan) -> str:

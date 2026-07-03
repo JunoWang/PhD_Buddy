@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from phd_buddy.onboarding import OnboardingPlan, ResearchProfile, load_plan, render_markdown, save_plan
+from phd_buddy.services.profile import OnboardingPlan, ResearchProfile, load_plan, render_markdown, save_plan
 
 
 def sample_profile() -> ResearchProfile:

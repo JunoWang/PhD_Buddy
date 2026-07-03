@@ -18,7 +18,7 @@ phd-buddy = "phd_buddy.cli:main"
 [tool.uv.build-backend]
 module-root = "src"
 module-name = "phd_buddy"
-source-include = ["src/phd_buddy/static/**"]
+source-include = ["src/phd_buddy/static/**", "src/phd_buddy/llm/harnesses/**"]
 
 [dependency-groups]
 dev = [

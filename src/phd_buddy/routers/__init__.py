@@ -1,0 +1,31 @@
+"""API routers, one module per feature surface (ARCHITECTURE.md §4).
+
+Every feature ships as a JSON endpoint before it ships as a screen; the web SPA and
+the later mobile app are both clients of these routers.
+"""
+
+from . import (
+    checkin,
+    digest,
+    ideas,
+    jobs,
+    library,
+    profile,
+    reading,
+    schedule,
+    support,
+    tasks,
+)
+
+ALL_ROUTERS = [
+    profile.router,
+    library.router,
+    reading.router,
+    ideas.router,
+    digest.router,
+    tasks.router,
+    schedule.router,
+    checkin.router,
+    support.router,
+    jobs.router,
+]
