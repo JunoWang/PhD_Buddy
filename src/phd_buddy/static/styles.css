@@ -688,6 +688,8 @@ button:disabled {
 
 .chat-surface {
   min-height: 190px;
+  max-height: 360px;
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: rgba(207, 195, 167, 0.26);
@@ -699,7 +701,13 @@ button:disabled {
   gap: 6px;
   border-radius: 18px;
   background: rgba(245, 241, 235, 0.8);
+  margin-bottom: 10px;
   padding: 12px;
+}
+
+.chat-message.student {
+  margin-left: 28px;
+  background: rgba(189, 201, 214, 0.34);
 }
 
 .chat-message strong {
@@ -711,6 +719,31 @@ button:disabled {
   color: var(--ink-soft);
   font-size: 0.9rem;
   line-height: 1.48;
+}
+
+.chat-message ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.chat-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chat-references span {
+  border: 1px solid rgba(143, 166, 152, 0.34);
+  border-radius: 999px;
+  background: rgba(245, 241, 235, 0.72);
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 850;
+  padding: 5px 8px;
 }
 
 .chat-input-row {

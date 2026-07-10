@@ -22,6 +22,9 @@ const dashboardPaperList = document.querySelector("#dashboardPaperList");
 const readingPaperList = document.querySelector("#readingPaperList");
 const researchIdentityLine = document.querySelector("#researchIdentityLine");
 const researchBuddyPrompt = document.querySelector("#researchBuddyPrompt");
+const chatSurface = document.querySelector(".chat-surface");
+const chatDraft = document.querySelector("#chatDraft");
+const askResearchBuddy = document.querySelector("#askResearchBuddy");
 const profileSummary = document.querySelector("#profileSummary");
 const profileChips = document.querySelector("#profileChips");
 const authSegments = document.querySelectorAll("[data-auth-mode]");
@@ -45,6 +48,7 @@ const listFields = new Set([
 let authMode = "signup";
 let currentStep = 0;
 let currentPlan = null;
+let selectedGoal = "";
 
 const storedUser = loadSession();
 if (storedUser) {
@@ -170,8 +174,17 @@ goalButtons.forEach((button) => {
   button.addEventListener("click", () => {
     goalButtons.forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
-    researchBuddyPrompt.textContent = `Good. I will start by helping you ${button.textContent.trim().toLowerCase()} using your foundational papers.`;
+    selectedGoal = button.textContent.trim().toLowerCase();
+    researchBuddyPrompt.textContent = `Good. I will start by helping you ${selectedGoal} using your foundational papers.`;
   });
+});
+
+askResearchBuddy.addEventListener("click", askResearchQuestion);
+chatDraft.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    askResearchQuestion();
+  }
 });
 
 editOnboarding.addEventListener("click", () => {
@@ -285,6 +298,7 @@ function renderDashboard(plan) {
 
   researchIdentityLine.textContent = researchLine || "Research identity saved from onboarding";
   researchBuddyPrompt.textContent = `I found ${papers.length} starter papers for ${researchLine || "your research area"}. Pick a first goal and I will help you make the first step concrete.`;
+  resetChatSurface(researchBuddyPrompt.textContent);
   dashboardPaperList.innerHTML = renderDashboardPaperCards(papers);
   readingPaperList.innerHTML = renderDashboardPaperCards(papers);
   profileSummary.textContent = `${student.preferred_name || student.name || "Student"}${student.school ? ` at ${student.school}` : ""}${profile.major_field ? `, focused on ${profile.major_field}` : ""}.`;
@@ -298,6 +312,77 @@ function renderDashboard(plan) {
     .filter(Boolean)
     .map((item) => `<span>${escapeHtml(item)}</span>`)
     .join("");
+}
+
+async function askResearchQuestion() {
+  const message = chatDraft.value.trim();
+  if (!message && !selectedGoal) {
+    chatDraft.focus();
+    return;
+  }
+  appendChatMessage("student", message || selectedGoal);
+  chatDraft.value = "";
+  askResearchBuddy.disabled = true;
+  askResearchBuddy.textContent = "Thinking";
+  try {
+    const response = await fetch("/api/research/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, first_goal: selectedGoal }),
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const data = await response.json();
+    appendResearchBuddyResponse(data);
+  } catch (error) {
+    appendChatMessage("assistant", messageFromError(error));
+  } finally {
+    askResearchBuddy.disabled = false;
+    askResearchBuddy.textContent = "Ask";
+  }
+}
+
+function resetChatSurface(message) {
+  chatSurface.innerHTML = `
+    <div class="chat-message assistant">
+      <strong>Research Buddy</strong>
+      <p>${escapeHtml(message)}</p>
+    </div>
+  `;
+}
+
+function appendChatMessage(role, message) {
+  const label = role === "student" ? "You" : "Research Buddy";
+  chatSurface.insertAdjacentHTML(
+    "beforeend",
+    `
+      <div class="chat-message ${role}">
+        <strong>${label}</strong>
+        <p>${escapeHtml(message)}</p>
+      </div>
+    `,
+  );
+  chatSurface.scrollTop = chatSurface.scrollHeight;
+}
+
+function appendResearchBuddyResponse(data) {
+  const actions = (data.suggested_actions || []).map((action) => `<li>${escapeHtml(action)}</li>`).join("");
+  const references = (data.referenced_papers || [])
+    .map((paper) => `<span>${escapeHtml(paper.title)} (${escapeHtml(paper.year)})</span>`)
+    .join("");
+  chatSurface.insertAdjacentHTML(
+    "beforeend",
+    `
+      <div class="chat-message assistant">
+        <strong>Research Buddy</strong>
+        <p>${escapeHtml(data.message)}</p>
+        ${actions ? `<ul>${actions}</ul>` : ""}
+        ${references ? `<div class="chat-references">${references}</div>` : ""}
+      </div>
+    `,
+  );
+  chatSurface.scrollTop = chatSurface.scrollHeight;
 }
 
 function renderDashboardPaperCards(papers) {

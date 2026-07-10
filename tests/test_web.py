@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from phd_buddy.app import app
 from phd_buddy.routers import auth as auth_router
 from phd_buddy.routers import profile as profile_router
+from phd_buddy.routers import research as research_router
 
 
 def test_signup_and_signin_use_local_user_store(tmp_path: Path, monkeypatch) -> None:
@@ -69,6 +70,34 @@ def test_create_onboarding_accepts_skipped_fields(tmp_path: Path, monkeypatch) -
     assert payload["plan"]["profile"]["major_field"] == "AI"
     assert payload["plan"]["fundamental_papers"]
     assert "Fundamental Paper Starter Set" in payload["markdown"]
+
+
+def test_research_chat_uses_latest_onboarding(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(profile_router, "DEFAULT_OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(profile_router, "DEFAULT_PROFILE_PATH", tmp_path / "onboarding_profile.json")
+    monkeypatch.setattr(research_router, "DEFAULT_PROFILE_PATH", tmp_path / "onboarding_profile.json")
+    client = TestClient(app)
+
+    client.post("/api/onboarding", json={"major_field": "AI", "subdomains": ["In-context learning"]})
+    response = client.post(
+        "/api/research/chat",
+        json={"message": "Which paper should I read first?", "first_goal": "plan first paper summary"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "AI / In-context learning" in payload["message"]
+    assert payload["suggested_actions"]
+    assert payload["referenced_papers"]
+
+
+def test_research_chat_requires_onboarding(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(research_router, "DEFAULT_PROFILE_PATH", tmp_path / "missing.json")
+    client = TestClient(app)
+
+    response = client.post("/api/research/chat", json={"message": "Where do I start?"})
+
+    assert response.status_code == 404
 
 
 def test_latest_onboarding_returns_404_when_missing(tmp_path: Path, monkeypatch) -> None:
