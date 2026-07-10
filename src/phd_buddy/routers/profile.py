@@ -25,15 +25,44 @@ router = APIRouter(prefix="/api/onboarding", tags=["profile"])
 
 
 class ResearchProfileRequest(BaseModel):
-    major_field: str = Field(min_length=1)
-    subdomains: list[str] = Field(min_length=1)
-    venues: list[str] = Field(min_length=1)
+    major_field: str = ""
+    subdomains: list[str] = Field(default_factory=list)
+    venues: list[str] = Field(default_factory=list)
+    name: str = ""
+    preferred_name: str = ""
+    sex: str = ""
+    age: str = ""
+    school: str = ""
+    department: str = ""
+    degree_stage: str = ""
+    advisor: str = ""
+    milestones: list[str] = Field(default_factory=list)
+    current_goals: list[str] = Field(default_factory=list)
+    pain_points: list[str] = Field(default_factory=list)
+    notification_preferences: list[str] = Field(default_factory=list)
+    weekly_availability: str = ""
     google_scholar_url: str = ""
     known_seed_papers: list[str] = Field(default_factory=list)
     recent_keywords: list[str] = Field(default_factory=list)
 
     def to_profile(self) -> ResearchProfile:
-        return ResearchProfile.from_dict(self.model_dump())
+        raw = self.model_dump()
+        raw["student"] = {
+            "name": raw.pop("name"),
+            "preferred_name": raw.pop("preferred_name"),
+            "sex": raw.pop("sex"),
+            "age": raw.pop("age"),
+            "school": raw.pop("school"),
+            "department": raw.pop("department"),
+            "degree_stage": raw.pop("degree_stage"),
+            "advisor": raw.pop("advisor"),
+            "milestones": raw.pop("milestones"),
+            "current_goals": raw.pop("current_goals"),
+            "pain_points": raw.pop("pain_points"),
+            "notification_preferences": raw.pop("notification_preferences"),
+            "weekly_availability": raw.pop("weekly_availability"),
+        }
+        return ResearchProfile.from_dict(raw)
 
 
 @router.post("")

@@ -4,77 +4,285 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PhD Buddy</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=zk-morandi-3" />
   </head>
   <body>
     <main class="app-shell">
       <section class="workspace">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">PhD Buddy</p>
-            <h1>Onboarding Profile</h1>
-          </div>
-          <div class="status-pill" id="saveStatus">Local draft</div>
-        </header>
-
-        <div class="content-grid">
-          <form class="panel form-panel" id="onboardingForm">
-            <div class="panel-header">
-              <div>
-                <h2>Research Identity</h2>
-                <p>major field -> subdomains + venues</p>
+        <section class="view active" id="onboardingView">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">PhD Buddy</p>
+              <h1>Personal Research Companion</h1>
+              <p class="subtitle">Set up the context your research, schedule, and support buddies will use.</p>
+              <div class="palette-strip" aria-hidden="true">
+                <span class="tone-cream"></span>
+                <span class="tone-terracotta"></span>
+                <span class="tone-ochre"></span>
+                <span class="tone-sage"></span>
+                <span class="tone-blue"></span>
+                <span class="tone-mauve"></span>
               </div>
-              <button class="icon-button" type="button" id="loadLatest" title="Load latest saved profile">
-                <span aria-hidden="true">↻</span>
-                <span class="sr-only">Load latest saved profile</span>
-              </button>
             </div>
+            <div class="status-pill" id="saveStatus">Local draft</div>
+          </header>
 
-            <div class="field-grid">
-              <label>
-                <span>Major field</span>
-                <input name="major_field" required placeholder="Machine Learning" />
+          <div class="content-grid">
+            <section class="panel form-panel">
+            <form id="authForm" class="auth-box">
+              <div class="panel-header">
+                <div>
+                  <h2>Account</h2>
+                  <p>Local signup or signin for this device</p>
+                </div>
+                <div class="segmented-control" role="tablist" aria-label="Account mode">
+                  <button type="button" class="segment active" data-auth-mode="signup">Sign up</button>
+                  <button type="button" class="segment" data-auth-mode="signin">Sign in</button>
+                </div>
+              </div>
+
+              <div class="field-grid">
+                <label>
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" required placeholder="you@school.edu" />
+                </label>
+                <label>
+                  <span>Password</span>
+                  <input name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="At least 8 characters" />
+                </label>
+              </div>
+
+              <label id="authNameField">
+                <span>Name</span>
+                <input name="name" autocomplete="name" placeholder="Your name" />
               </label>
-              <label>
-                <span>Google Scholar profile</span>
-                <input name="google_scholar_url" type="url" placeholder="https://scholar.google.com/citations?user=..." />
-              </label>
-            </div>
 
-            <label>
-              <span>Subdomains</span>
-              <textarea name="subdomains" required rows="3" placeholder="Information Retrieval, NLP, recommender systems"></textarea>
-            </label>
+              <footer class="form-actions">
+                <button class="secondary-button" type="button" id="continueGuest">Continue as guest</button>
+                <button class="primary-button" type="submit" id="authSubmit">Create account</button>
+              </footer>
+            </form>
 
-            <label>
-              <span>Interested venues / conferences</span>
-              <textarea name="venues" required rows="3" placeholder="ACL, CHI, NeurIPS"></textarea>
-            </label>
+            <form class="onboarding-form" id="onboardingForm">
+              <div class="wizard-shell">
+                <nav class="wizard-tabs" aria-label="Onboarding steps">
+                  <button type="button" class="wizard-tab active" data-step="0">
+                    <span>01</span>
+                    Research
+                  </button>
+                  <button type="button" class="wizard-tab" data-step="1">
+                    <span>02</span>
+                    Profile
+                  </button>
+                  <button type="button" class="wizard-tab" data-step="2">
+                    <span>03</span>
+                    PhD Plan
+                  </button>
+                  <button type="button" class="wizard-tab" data-step="3">
+                    <span>04</span>
+                    Preferences
+                  </button>
+                </nav>
 
-            <label>
-              <span>Known seed papers</span>
-              <textarea name="known_seed_papers" rows="3" placeholder="One paper per line, or comma-separated"></textarea>
-            </label>
+                <div class="step-meter" aria-hidden="true">
+                  <div class="step-meter-fill" id="stepMeterFill"></div>
+                </div>
+              </div>
 
-            <label>
-              <span>Recent-search keywords</span>
-              <textarea name="recent_keywords" rows="2" placeholder="agentic search, citation verification"></textarea>
-            </label>
+              <section class="wizard-step active" data-step-panel="0">
+                <div class="panel-header">
+                  <div>
+                    <h2>Research Identity</h2>
+                    <p>Used to personalize foundational papers and reading support</p>
+                  </div>
+                  <button class="icon-button" type="button" id="loadLatest" title="Load latest saved profile">
+                    <span aria-hidden="true">R</span>
+                    <span class="sr-only">Load latest saved profile</span>
+                  </button>
+                </div>
 
-            <footer class="form-actions">
-              <button class="secondary-button" type="reset">Reset</button>
-              <button class="primary-button" type="submit">Generate Onboarding</button>
-            </footer>
-          </form>
+                <div class="field-grid">
+                  <label>
+                    <span>Major field</span>
+                    <input name="major_field" placeholder="AI" />
+                  </label>
+                  <label>
+                    <span>Subfield</span>
+                    <textarea name="subdomains" rows="2" placeholder="In-context learning, LLM agents"></textarea>
+                  </label>
+                </div>
+
+                <label>
+                  <span>Fundamental or known seed papers</span>
+                  <textarea name="known_seed_papers" rows="3" placeholder="One paper per line, or comma-separated"></textarea>
+                </label>
+
+                <div class="field-grid">
+                  <label>
+                    <span>Interested venues</span>
+                    <textarea name="venues" rows="2" placeholder="NeurIPS, ICLR, ACL"></textarea>
+                  </label>
+                  <label>
+                    <span>Recent-search keywords</span>
+                    <textarea name="recent_keywords" rows="2" placeholder="mechanistic ICL, induction heads"></textarea>
+                  </label>
+                </div>
+
+                <label>
+                  <span>Google Scholar profile</span>
+                  <input name="google_scholar_url" type="url" placeholder="https://scholar.google.com/citations?user=..." />
+                </label>
+              </section>
+
+              <section class="wizard-step" data-step-panel="1">
+                <div class="panel-header">
+                  <div>
+                    <h2>Student Context</h2>
+                    <p>Used later by schedule and mental support buddies</p>
+                  </div>
+                </div>
+
+                <div class="field-grid">
+                  <label>
+                    <span>Name</span>
+                    <input name="name" autocomplete="name" placeholder="Your full name" />
+                  </label>
+                  <label>
+                    <span>Preferred name</span>
+                    <input name="preferred_name" placeholder="What PhD Buddy should call you" />
+                  </label>
+                </div>
+
+                <div class="field-grid three">
+                  <label>
+                    <span>Sex</span>
+                    <select name="sex">
+                      <option value="">Skip for now</option>
+                      <option>Female</option>
+                      <option>Male</option>
+                      <option>Non-binary</option>
+                      <option>Prefer not to say</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Age</span>
+                    <input name="age" inputmode="numeric" placeholder="26" />
+                  </label>
+                  <label>
+                    <span>Degree stage</span>
+                    <select name="degree_stage">
+                      <option value="">Skip for now</option>
+                      <option>Prospective</option>
+                      <option>Year 1</option>
+                      <option>Coursework</option>
+                      <option>Qualifying exam</option>
+                      <option>Candidacy</option>
+                      <option>Dissertation</option>
+                      <option>Graduating</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="field-grid">
+                  <label>
+                    <span>School</span>
+                    <input name="school" placeholder="University or institution" />
+                  </label>
+                  <label>
+                    <span>Department / program</span>
+                    <input name="department" placeholder="Computer Science" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="wizard-step" data-step-panel="2">
+                <div class="panel-header">
+                  <div>
+                    <h2>PhD Plan</h2>
+                    <p>Helps the companion understand your working reality</p>
+                  </div>
+                </div>
+
+                <label>
+                  <span>Advisor / committee info</span>
+                  <textarea name="advisor" rows="2" placeholder="Advisor name, co-advisor, committee notes"></textarea>
+                </label>
+
+                <label>
+                  <span>Program milestones and expected dates</span>
+                  <textarea name="milestones" rows="3" placeholder="Qualifying exam - Spring 2027&#10;Proposal - Fall 2027"></textarea>
+                </label>
+
+                <label>
+                  <span>Current goals</span>
+                  <textarea name="current_goals" rows="3" placeholder="coursework, qualifying exam, proposal, publications, dissertation, job market"></textarea>
+                </label>
+              </section>
+
+              <section class="wizard-step" data-step-panel="3">
+                <div class="panel-header">
+                  <div>
+                    <h2>Companion Preferences</h2>
+                    <p>Optional signals for schedule and mental support</p>
+                  </div>
+                </div>
+
+                <label>
+                  <span>Pain points</span>
+                  <textarea name="pain_points" rows="3" placeholder="time management, writing, reading, experiments, advisor meetings, motivation"></textarea>
+                </label>
+
+                <label>
+                  <span>Weekly availability or work preferences</span>
+                  <textarea name="weekly_availability" rows="3" placeholder="Mornings for deep work, Fridays for writing, no meetings after 5pm"></textarea>
+                </label>
+
+                <label>
+                  <span>Notification preferences</span>
+                  <textarea name="notification_preferences" rows="2" placeholder="Daily planning, weekly review, writing reminders"></textarea>
+                </label>
+              </section>
+
+              <footer class="form-actions">
+                <button class="secondary-button" type="button" id="previousStep">Back</button>
+                <div class="action-cluster">
+                  <button class="secondary-button" type="reset">Reset</button>
+                  <button class="secondary-button" type="button" id="nextStep">Next</button>
+                  <button class="primary-button" type="submit">Save Onboarding</button>
+                </div>
+              </footer>
+            </form>
+          </section>
 
           <aside class="panel preview-panel">
             <div class="panel-header">
               <div>
-                <h2>Saved Onboarding</h2>
-                <p>canonical JSON + vault markdown</p>
+                <h2>Personalized Starter Kit</h2>
+                <p>Research profile, fundamental papers, and vault notes</p>
               </div>
             </div>
 
+            <div class="starter-summary">
+              <div>
+                <span class="metric-value" id="paperCount">0</span>
+                <span class="metric-label">papers</span>
+              </div>
+              <div>
+                <span class="metric-value">1</span>
+                <span class="metric-label">profile note</span>
+              </div>
+              <div>
+                <span class="metric-value">local</span>
+                <span class="metric-label">vault</span>
+              </div>
+            </div>
+
+            <div class="paper-list empty" id="paperList">
+              <div class="empty-state">
+                <strong>No starter papers yet</strong>
+                <span>Save onboarding to generate paper summaries.</span>
+              </div>
+            </div>
             <div class="output-paths" id="outputPaths" hidden></div>
 
             <div class="markdown-preview">
@@ -82,13 +290,152 @@
                 <span>Vault note</span>
                 <button class="secondary-button small" type="button" id="copyMarkdown">Copy</button>
               </div>
-              <pre id="markdownOutput">Complete the profile to generate the onboarding note.</pre>
+              <pre id="markdownOutput">Complete any fields you know, then save onboarding to generate the companion profile.</pre>
             </div>
-          </aside>
-        </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="dashboardView" hidden>
+          <header class="dashboard-topbar glass-panel">
+            <div>
+              <p class="eyebrow">PhD Buddy</p>
+              <h1 id="dashboardTitle">Research Buddy</h1>
+              <p class="subtitle" id="dashboardSubtitle">Start from your fundamental papers, then pick the first research goal.</p>
+            </div>
+            <button class="secondary-button" type="button" id="editOnboarding">Edit onboarding</button>
+          </header>
+
+          <div class="dashboard-layout">
+            <nav class="buddy-nav glass-panel" aria-label="Buddy sections">
+              <button type="button" class="buddy-nav-item active" data-dashboard-tab="research">
+                <span>RB</span>
+                Research Buddy
+              </button>
+              <button type="button" class="buddy-nav-item" data-dashboard-tab="reading">
+                <span>RD</span>
+                Reading Buddy
+              </button>
+              <button type="button" class="buddy-nav-item" data-dashboard-tab="schedule">
+                <span>SC</span>
+                Schedule Buddy
+              </button>
+              <button type="button" class="buddy-nav-item" data-dashboard-tab="support">
+                <span>MS</span>
+                Mental Support Buddy
+              </button>
+              <button type="button" class="buddy-nav-item" data-dashboard-tab="profile">
+                <span>PF</span>
+                Profile
+              </button>
+            </nav>
+
+            <section class="dashboard-main">
+              <section class="dashboard-tab active" data-dashboard-panel="research">
+                <div class="dashboard-grid">
+                  <section class="glass-panel dashboard-card wide">
+                    <div class="panel-header">
+                      <div>
+                        <h2>Fundamental Papers</h2>
+                        <p id="researchIdentityLine">Saved from onboarding</p>
+                      </div>
+                    </div>
+                    <div class="dashboard-paper-list" id="dashboardPaperList"></div>
+                  </section>
+
+                  <section class="glass-panel dashboard-card">
+                    <div class="panel-header">
+                      <div>
+                        <h2>Research Buddy Chat</h2>
+                        <p>First conversation starter</p>
+                      </div>
+                    </div>
+                    <div class="chat-surface">
+                      <div class="chat-message assistant">
+                        <strong>Research Buddy</strong>
+                        <p id="researchBuddyPrompt">Save onboarding, then I will help you choose where to start.</p>
+                      </div>
+                    </div>
+                    <div class="chat-input-row">
+                      <input id="chatDraft" placeholder="Ask about a paper, method, or first reading path" />
+                      <button class="primary-button" type="button">Ask</button>
+                    </div>
+                  </section>
+
+                  <section class="glass-panel dashboard-card">
+                    <div class="panel-header">
+                      <div>
+                        <h2>Pick First Goal</h2>
+                        <p>Choose what the assistant should optimize for first</p>
+                      </div>
+                    </div>
+                    <div class="goal-picker" id="goalPicker">
+                      <button type="button">Build literature foundation</button>
+                      <button type="button">Prepare advisor meeting</button>
+                      <button type="button">Plan first paper summary</button>
+                      <button type="button">Create weekly research rhythm</button>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="dashboard-tab" data-dashboard-panel="reading">
+                <div class="dashboard-grid">
+                  <section class="glass-panel dashboard-card wide">
+                    <h2>Reading Queue</h2>
+                    <p class="card-copy">Paper summaries from onboarding appear here first. Later this becomes the PDF, markdown, and deep-dive workspace.</p>
+                    <div class="dashboard-paper-list" id="readingPaperList"></div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="dashboard-tab" data-dashboard-panel="schedule">
+                <div class="dashboard-grid">
+                  <section class="glass-panel dashboard-card">
+                    <h2>Next Planning Step</h2>
+                    <p class="card-copy">Use milestones, goals, and weekly availability from onboarding to propose a research week.</p>
+                  </section>
+                  <section class="glass-panel dashboard-card">
+                    <h2>Weekly Rhythm</h2>
+                    <div class="mini-timeline">
+                      <span>Deep work</span>
+                      <span>Reading</span>
+                      <span>Writing</span>
+                      <span>Advisor prep</span>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="dashboard-tab" data-dashboard-panel="support">
+                <div class="dashboard-grid">
+                  <section class="glass-panel dashboard-card">
+                    <h2>Mental Support Buddy</h2>
+                    <p class="card-copy">A low-pressure check-in space based on pain points and work preferences.</p>
+                    <div class="support-checkin">
+                      <button type="button">Feeling stuck</button>
+                      <button type="button">Need structure</button>
+                      <button type="button">Low motivation</button>
+                    </div>
+                  </section>
+                </div>
+              </section>
+
+              <section class="dashboard-tab" data-dashboard-panel="profile">
+                <div class="dashboard-grid">
+                  <section class="glass-panel dashboard-card wide">
+                    <h2>Profile</h2>
+                    <p class="card-copy" id="profileSummary">Your saved onboarding profile will appear here.</p>
+                    <div class="profile-chip-row" id="profileChips"></div>
+                  </section>
+                </div>
+              </section>
+            </section>
+          </div>
+        </section>
       </section>
     </main>
 
-    <script src="/static/app.js" type="module"></script>
+    <script src="/static/app.js?v=zk-morandi-3" type="module"></script>
   </body>
 </html>

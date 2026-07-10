@@ -31,11 +31,15 @@ def test_save_plan_writes_json_and_markdown(tmp_path: Path) -> None:
 
     assert json_path.exists()
     assert markdown_path.exists()
+    summary_paths = list((tmp_path / "fundamental_papers").glob("*/summarize.md"))
+    assert summary_paths
     loaded = load_plan(json_path)
     assert loaded.profile.major_field == "Machine Learning"
     assert loaded.profile.subdomains == ["Information Retrieval", "NLP"]
+    assert loaded.fundamental_papers[0].summary_path.endswith("summarize.md")
     markdown = markdown_path.read_text(encoding="utf-8")
     assert "## Research Identity" in markdown
+    assert "## Fundamental Paper Starter Set" in markdown
     assert "## Generated Onboarding Workflow" not in markdown
 
 

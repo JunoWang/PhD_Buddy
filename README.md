@@ -1,6 +1,6 @@
 # PhD Buddy
 
-PhD Buddy is a local-first research companion for PhD students. The first implemented slice is onboarding: it captures a student's major research field, subdomains, interested venues/conferences, and optional Google Scholar profile, then writes a dual-format cache for the vault.
+PhD Buddy is a local-first research companion for PhD students. The onboarding slice now supports local signup/signin, a skippable profile wizard, personalized research identity capture, and a starter set of fundamental papers with local `summarize.md` notes.
 
 ## Project Setup
 
@@ -40,6 +40,14 @@ http://127.0.0.1:8000
 ```
 
 The web app saves the same local files under `vault/onboarding/`.
+
+Onboarding can collect:
+
+- research field, subfield, venues, seed papers, and Google Scholar profile
+- name, preferred name, school, department, sex, age, and degree stage
+- advisor/committee notes, milestones, current goals, pain points, weekly availability, and notifications
+
+Local accounts are stored under `vault/auth/users.json`. This is intended for local development and local-first identity, not production authentication.
 
 ## Test
 
