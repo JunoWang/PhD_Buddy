@@ -4,17 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PhD Buddy</title>
-    <link rel="stylesheet" href="/static/styles.css?v=zk-morandi-3" />
+    <link rel="stylesheet" href="/static/styles.css?v=prelude-layout-1" />
   </head>
   <body>
     <main class="app-shell">
       <section class="workspace">
-        <section class="view active" id="onboardingView">
+        <section class="view active" id="authView">
           <header class="topbar">
             <div>
               <p class="eyebrow">PhD Buddy</p>
               <h1>Personal Research Companion</h1>
-              <p class="subtitle">Set up the context your research, schedule, and support buddies will use.</p>
+              <p class="subtitle">Sign in locally before setting up your research, schedule, and support workspace.</p>
               <div class="palette-strip" aria-hidden="true">
                 <span class="tone-cream"></span>
                 <span class="tone-terracotta"></span>
@@ -27,8 +27,7 @@
             <div class="status-pill" id="saveStatus">Local draft</div>
           </header>
 
-          <div class="content-grid">
-            <section class="panel form-panel">
+          <section class="panel form-panel auth-screen-panel">
             <form id="authForm" class="auth-box">
               <div class="panel-header">
                 <div>
@@ -62,6 +61,28 @@
                 <button class="primary-button" type="submit" id="authSubmit">Create account</button>
               </footer>
             </form>
+          </section>
+        </section>
+
+        <section class="view" id="onboardingView" hidden>
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">PhD Buddy</p>
+              <h1>Onboarding</h1>
+              <p class="subtitle">Set up the context your research, schedule, and support buddies will use.</p>
+              <div class="palette-strip" aria-hidden="true">
+                <span class="tone-cream"></span>
+                <span class="tone-terracotta"></span>
+                <span class="tone-ochre"></span>
+                <span class="tone-sage"></span>
+                <span class="tone-blue"></span>
+                <span class="tone-mauve"></span>
+              </div>
+            </div>
+          </header>
+
+          <div class="content-grid">
+            <section class="panel form-panel">
 
             <form class="onboarding-form" id="onboardingForm">
               <div class="wizard-shell">
@@ -116,6 +137,17 @@
                   <span>Fundamental or known seed papers</span>
                   <textarea name="known_seed_papers" rows="3" placeholder="One paper per line, or comma-separated"></textarea>
                 </label>
+
+                <div class="field-grid">
+                  <label>
+                    <span>Seed paper URLs</span>
+                    <textarea name="seed_paper_urls" rows="2" placeholder="arXiv, DOI, PDF, or publisher URLs"></textarea>
+                  </label>
+                  <label>
+                    <span>Seed PDF files</span>
+                    <input name="seed_paper_files" type="file" accept="application/pdf" multiple />
+                  </label>
+                </div>
 
                 <div class="field-grid">
                   <label>
@@ -248,7 +280,7 @@
                 <div class="action-cluster">
                   <button class="secondary-button" type="reset">Reset</button>
                   <button class="secondary-button" type="button" id="nextStep">Next</button>
-                  <button class="primary-button" type="submit">Save Onboarding</button>
+                  <button class="primary-button" type="submit">Onboard</button>
                 </div>
               </footer>
             </form>
@@ -312,10 +344,6 @@
                 <span>RB</span>
                 Research Buddy
               </button>
-              <button type="button" class="buddy-nav-item" data-dashboard-tab="reading">
-                <span>RD</span>
-                Reading Buddy
-              </button>
               <button type="button" class="buddy-nav-item" data-dashboard-tab="schedule">
                 <span>SC</span>
                 Schedule Buddy
@@ -324,68 +352,87 @@
                 <span>MS</span>
                 Mental Support Buddy
               </button>
-              <button type="button" class="buddy-nav-item" data-dashboard-tab="profile">
-                <span>PF</span>
-                Profile
-              </button>
             </nav>
 
             <section class="dashboard-main">
               <section class="dashboard-tab active" data-dashboard-panel="research">
-                <div class="dashboard-grid">
-                  <section class="glass-panel dashboard-card wide">
+                <div class="research-workspace">
+                  <aside class="research-paper-panel glass-panel">
                     <div class="panel-header">
                       <div>
-                        <h2>Fundamental Papers</h2>
+                        <h2>Paper Shelf</h2>
                         <p id="researchIdentityLine">Saved from onboarding</p>
                       </div>
                     </div>
+                    <div class="paper-shelf-section">
+                      <div class="section-label">Imported</div>
+                      <div class="dashboard-paper-list" id="importedPaperList"></div>
+                    </div>
+                    <div class="paper-shelf-section">
+                      <div class="section-label">Seed</div>
                     <div class="dashboard-paper-list" id="dashboardPaperList"></div>
-                  </section>
+                    </div>
+                  </aside>
 
-                  <section class="glass-panel dashboard-card">
+                  <main class="research-reader-column">
+                    <section class="glass-panel dashboard-card paper-reader-card">
+                      <div class="panel-header">
+                        <div>
+                          <h2 id="paperReaderTitle">Paper Reader</h2>
+                          <p id="paperReaderMeta">Click an imported paper to read its extracted markdown</p>
+                        </div>
+                      </div>
+                      <pre class="paper-reader" id="paperReader">No paper selected.</pre>
+                    </section>
+
+                    <section class="glass-panel dashboard-card">
                     <div class="panel-header">
                       <div>
-                        <h2>Research Buddy Chat</h2>
-                        <p>First conversation starter</p>
+                        <h2>Recommended New Papers</h2>
+                        <p>Newest related papers from your subfield, venues, and search keywords</p>
                       </div>
+                      <button class="secondary-button small" type="button" id="refreshRecommendations">Refresh</button>
+                    </div>
+                    <div class="library-tools compact">
+                      <div class="chat-input-row">
+                        <input id="paperSearchDraft" placeholder="Search arXiv or leave empty for onboarding-based recommendations" />
+                        <button class="primary-button" type="button" id="searchPapers">Search</button>
+                      </div>
+                      <div class="paper-search-results" id="paperSearchResults"></div>
+                    </div>
+                    </section>
+                  </main>
+
+                  <aside class="research-chat-panel glass-panel" id="researchChatPanel">
+                    <div class="panel-header">
+                      <div>
+                        <h2>Research Chat</h2>
+                        <p id="chatContextLine">Select a paper, then choose how you want to understand it</p>
+                      </div>
+                      <button class="icon-button" type="button" id="toggleResearchChat" title="Collapse RAG chat">
+                        <span aria-hidden="true">C</span>
+                        <span class="sr-only">Collapse RAG chat</span>
+                      </button>
+                    </div>
+                    <div class="mode-picker" id="understandingModePicker" aria-label="Understanding mode">
+                      <button type="button" class="active" data-understanding-mode="Explain simply">Explain simply</button>
+                      <button type="button" data-understanding-mode="Method walkthrough">Method</button>
+                      <button type="button" data-understanding-mode="Experiment critique">Critique</button>
+                      <button type="button" data-understanding-mode="Advisor meeting prep">Advisor prep</button>
+                      <button type="button" data-understanding-mode="Connect to my research">Connect</button>
                     </div>
                     <div class="chat-surface">
                       <div class="chat-message assistant">
                         <strong>Research Buddy</strong>
-                        <p id="researchBuddyPrompt">Save onboarding, then I will help you choose where to start.</p>
+                        <p id="researchBuddyPrompt">Select an imported paper, choose a mode, then ask grounded questions about the material.</p>
                       </div>
                     </div>
                     <div class="chat-input-row">
-                      <input id="chatDraft" placeholder="Ask about a paper, method, or first reading path" />
+                      <input id="chatDraft" placeholder="Ask imported papers" />
                       <button class="primary-button" type="button" id="askResearchBuddy">Ask</button>
                     </div>
-                  </section>
-
-                  <section class="glass-panel dashboard-card">
-                    <div class="panel-header">
-                      <div>
-                        <h2>Pick First Goal</h2>
-                        <p>Choose what the assistant should optimize for first</p>
-                      </div>
-                    </div>
-                    <div class="goal-picker" id="goalPicker">
-                      <button type="button">Build literature foundation</button>
-                      <button type="button">Prepare advisor meeting</button>
-                      <button type="button">Plan first paper summary</button>
-                      <button type="button">Create weekly research rhythm</button>
-                    </div>
-                  </section>
-                </div>
-              </section>
-
-              <section class="dashboard-tab" data-dashboard-panel="reading">
-                <div class="dashboard-grid">
-                  <section class="glass-panel dashboard-card wide">
-                    <h2>Reading Queue</h2>
-                    <p class="card-copy">Paper summaries from onboarding appear here first. Later this becomes the PDF, markdown, and deep-dive workspace.</p>
-                    <div class="dashboard-paper-list" id="readingPaperList"></div>
-                  </section>
+                    <div class="agent-answer" id="paperAgentAnswer"></div>
+                  </aside>
                 </div>
               </section>
 
@@ -421,21 +468,12 @@
                 </div>
               </section>
 
-              <section class="dashboard-tab" data-dashboard-panel="profile">
-                <div class="dashboard-grid">
-                  <section class="glass-panel dashboard-card wide">
-                    <h2>Profile</h2>
-                    <p class="card-copy" id="profileSummary">Your saved onboarding profile will appear here.</p>
-                    <div class="profile-chip-row" id="profileChips"></div>
-                  </section>
-                </div>
-              </section>
             </section>
           </div>
         </section>
       </section>
     </main>
 
-    <script src="/static/app.js?v=zk-morandi-3" type="module"></script>
+    <script src="/static/app.js?v=prelude-layout-1" type="module"></script>
   </body>
 </html>

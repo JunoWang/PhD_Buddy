@@ -301,7 +301,7 @@ def recommend_fundamental_papers(profile: ResearchProfile) -> list[FundamentalPa
     """Return a conservative local starter set until live literature discovery is wired in."""
 
     terms = " ".join([profile.major_field, *profile.subdomains, *profile.recent_keywords]).lower()
-    candidates = list(_GENERAL_AI_PAPERS)
+    candidates: list[FundamentalPaper] = []
     if any(term in terms for term in ["context", "in-context", "icl", "language model", "llm", "prompt"]):
         candidates.extend(_IN_CONTEXT_LEARNING_PAPERS)
     if any(term in terms for term in ["retrieval", "rag", "information retrieval", "search"]):
@@ -455,31 +455,6 @@ def _paper(title: str, authors: str, year: str, why: str, bullets: list[str]) ->
     )
     return FundamentalPaper(title, authors, year, why, markdown)
 
-
-_GENERAL_AI_PAPERS = [
-    _paper(
-        "Attention Is All You Need",
-        "Vaswani et al.",
-        "2017",
-        "Introduced the Transformer architecture that became the base of modern language and multimodal models.",
-        [
-            "Self-attention lets tokens condition on other tokens without recurrence.",
-            "Multi-head attention gives the model several learned relation spaces.",
-            "The encoder-decoder structure is less important today than the attention block it popularized.",
-        ],
-    ),
-    _paper(
-        "ImageNet Classification with Deep Convolutional Neural Networks",
-        "Krizhevsky, Sutskever, and Hinton",
-        "2012",
-        "Marked the deep learning breakthrough that changed mainstream AI research practice.",
-        [
-            "Large neural networks became practical when paired with GPUs, data, and regularization.",
-            "The result shifted computer vision away from hand-engineered feature pipelines.",
-            "It is useful historical context for why scale became central in AI.",
-        ],
-    ),
-]
 
 _IN_CONTEXT_LEARNING_PAPERS = [
     _paper(

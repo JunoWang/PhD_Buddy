@@ -1,5 +1,6 @@
 const form = document.querySelector("#onboardingForm");
 const authForm = document.querySelector("#authForm");
+const authView = document.querySelector("#authView");
 const onboardingView = document.querySelector("#onboardingView");
 const dashboardView = document.querySelector("#dashboardView");
 const saveStatus = document.querySelector("#saveStatus");
@@ -19,14 +20,24 @@ const editOnboarding = document.querySelector("#editOnboarding");
 const dashboardTitle = document.querySelector("#dashboardTitle");
 const dashboardSubtitle = document.querySelector("#dashboardSubtitle");
 const dashboardPaperList = document.querySelector("#dashboardPaperList");
-const readingPaperList = document.querySelector("#readingPaperList");
+const importedPaperList = document.querySelector("#importedPaperList");
+const paperReaderTitle = document.querySelector("#paperReaderTitle");
+const paperReaderMeta = document.querySelector("#paperReaderMeta");
+const paperReader = document.querySelector("#paperReader");
 const researchIdentityLine = document.querySelector("#researchIdentityLine");
 const researchBuddyPrompt = document.querySelector("#researchBuddyPrompt");
+const chatContextLine = document.querySelector("#chatContextLine");
 const chatSurface = document.querySelector(".chat-surface");
 const chatDraft = document.querySelector("#chatDraft");
 const askResearchBuddy = document.querySelector("#askResearchBuddy");
-const profileSummary = document.querySelector("#profileSummary");
-const profileChips = document.querySelector("#profileChips");
+const paperSearchDraft = document.querySelector("#paperSearchDraft");
+const searchPapers = document.querySelector("#searchPapers");
+const refreshRecommendations = document.querySelector("#refreshRecommendations");
+const paperSearchResults = document.querySelector("#paperSearchResults");
+const paperAgentAnswer = document.querySelector("#paperAgentAnswer");
+const researchChatPanel = document.querySelector("#researchChatPanel");
+const toggleResearchChat = document.querySelector("#toggleResearchChat");
+const understandingModeButtons = document.querySelectorAll("[data-understanding-mode]");
 const authSegments = document.querySelectorAll("[data-auth-mode]");
 const stepButtons = document.querySelectorAll("[data-step]");
 const stepPanels = document.querySelectorAll("[data-step-panel]");
@@ -38,6 +49,7 @@ const listFields = new Set([
   "subdomains",
   "venues",
   "known_seed_papers",
+  "seed_paper_urls",
   "recent_keywords",
   "milestones",
   "current_goals",
@@ -49,11 +61,16 @@ let authMode = "signup";
 let currentStep = 0;
 let currentPlan = null;
 let selectedGoal = "";
+let paperSearchCache = [];
+let selectedPaperId = "";
+let selectedPaperTitle = "";
+let selectedUnderstandingMode = "Explain simply";
 
 const storedUser = loadSession();
 if (storedUser) {
   setStatus(`Signed in as ${storedUser.name || storedUser.email}`, "saved");
-  authForm.classList.add("collapsed");
+  syncNameFromAccount(storedUser);
+  showOnboarding();
 }
 
 authSegments.forEach((button) => {
@@ -75,19 +92,18 @@ authForm.addEventListener("submit", async (event) => {
     }
     const data = await response.json();
     localStorage.setItem("phdBuddySession", JSON.stringify(data));
-    authForm.classList.add("collapsed");
     syncNameFromAccount(data.user);
     setStatus(`Signed in as ${data.user.name || data.user.email}`, "saved");
+    showOnboarding();
   } catch (error) {
     setStatus("Auth failed", "error");
-    markdownOutput.textContent = messageFromError(error);
   }
 });
 
 continueGuest.addEventListener("click", () => {
   localStorage.removeItem("phdBuddySession");
-  authForm.classList.add("collapsed");
   setStatus("Guest draft", "");
+  showOnboarding();
 });
 
 form.addEventListener("submit", async (event) => {
@@ -180,19 +196,42 @@ goalButtons.forEach((button) => {
 });
 
 askResearchBuddy.addEventListener("click", askResearchQuestion);
+searchPapers.addEventListener("click", searchPaperLibrary);
+refreshRecommendations.addEventListener("click", searchPaperLibrary);
+toggleResearchChat.addEventListener("click", toggleChatPanel);
+understandingModeButtons.forEach((button) => {
+  button.addEventListener("click", () => setUnderstandingMode(button.dataset.understandingMode));
+});
 chatDraft.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     askResearchQuestion();
   }
 });
-
-editOnboarding.addEventListener("click", () => {
-  dashboardView.hidden = true;
-  dashboardView.classList.remove("active");
-  onboardingView.hidden = false;
-  onboardingView.classList.add("active");
+paperSearchDraft.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    searchPaperLibrary();
+  }
 });
+editOnboarding.addEventListener("click", () => {
+  showOnboarding();
+});
+
+function showAuth() {
+  setActiveView(authView);
+}
+
+function showOnboarding() {
+  setActiveView(onboardingView);
+}
+
+function setActiveView(activeView) {
+  [authView, onboardingView, dashboardView].forEach((view) => {
+    view.hidden = view !== activeView;
+    view.classList.toggle("active", view === activeView);
+  });
+}
 
 function setAuthMode(mode) {
   authMode = mode;
@@ -213,9 +252,17 @@ function showStep(step) {
 function formToPayload(formData) {
   const payload = {};
   for (const [name, value] of formData.entries()) {
+    if (name === "seed_paper_files") {
+      continue;
+    }
     const text = String(value).trim();
     payload[name] = listFields.has(name) ? parseList(text) : text;
   }
+  const seedUrls = payload.seed_paper_urls || [];
+  if (seedUrls.length) {
+    payload.known_seed_papers = [...(payload.known_seed_papers || []), ...seedUrls];
+  }
+  delete payload.seed_paper_urls;
   return payload;
 }
 
@@ -268,20 +315,17 @@ function renderResult(data) {
 function showDashboard(data) {
   currentPlan = data.plan;
   renderDashboard(currentPlan);
-  onboardingView.hidden = true;
-  onboardingView.classList.remove("active");
-  dashboardView.hidden = false;
-  dashboardView.classList.add("active");
+  setActiveView(dashboardView);
   showDashboardTab("research");
+  loadImportedPapers();
+  searchPaperLibrary();
 }
 
 function showDashboardTab(tab) {
   const labels = {
-    research: ["Research Buddy", "Start from your fundamental papers, then pick the first research goal."],
-    reading: ["Reading Buddy", "Read, summarize, and deep-dive into papers without losing the thread."],
+    research: ["Research Buddy", "Search, import, chunk, and query papers through one RAG workspace."],
     schedule: ["Schedule Buddy", "Turn milestones and weekly availability into a calm research rhythm."],
     support: ["Mental Support Buddy", "Use low-pressure check-ins and structure when the PhD feels heavy."],
-    profile: ["Profile", "Review the saved context that personalizes every buddy."],
   };
   dashboardTabs.forEach((button) => button.classList.toggle("active", button.dataset.dashboardTab === tab));
   dashboardPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.dashboardPanel === tab));
@@ -297,38 +341,31 @@ function renderDashboard(plan) {
   const researchLine = [profile.major_field, subdomains.join(", ")].filter(Boolean).join(" / ");
 
   researchIdentityLine.textContent = researchLine || "Research identity saved from onboarding";
-  researchBuddyPrompt.textContent = `I found ${papers.length} starter papers for ${researchLine || "your research area"}. Pick a first goal and I will help you make the first step concrete.`;
+  researchBuddyPrompt.textContent = `I found ${papers.length} seed papers for ${researchLine || "your research area"}. Select an imported paper and I will answer from its chunked RAG context.`;
   resetChatSurface(researchBuddyPrompt.textContent);
   dashboardPaperList.innerHTML = renderDashboardPaperCards(papers);
-  readingPaperList.innerHTML = renderDashboardPaperCards(papers);
-  profileSummary.textContent = `${student.preferred_name || student.name || "Student"}${student.school ? ` at ${student.school}` : ""}${profile.major_field ? `, focused on ${profile.major_field}` : ""}.`;
-  profileChips.innerHTML = [
-    profile.major_field,
-    ...subdomains,
-    student.degree_stage,
-    student.department,
-    ...(student.current_goals || []),
-  ]
-    .filter(Boolean)
-    .map((item) => `<span>${escapeHtml(item)}</span>`)
-    .join("");
 }
 
 async function askResearchQuestion() {
   const message = chatDraft.value.trim();
-  if (!message && !selectedGoal) {
+  if (!message) {
     chatDraft.focus();
     return;
   }
-  appendChatMessage("student", message || selectedGoal);
+  const modePrefix = `${selectedUnderstandingMode}${selectedPaperTitle ? ` for "${selectedPaperTitle}"` : ""}`;
+  appendChatMessage("student", `${message} (${selectedUnderstandingMode})`);
   chatDraft.value = "";
   askResearchBuddy.disabled = true;
   askResearchBuddy.textContent = "Thinking";
+  paperAgentAnswer.innerHTML = `<div class="empty-state"><span>Running guardrail, retrieval, grading, and answer generation...</span></div>`;
   try {
-    const response = await fetch("/api/research/chat", {
+    const response = await fetch("/api/reading/ask-agentic", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, first_goal: selectedGoal }),
+      body: JSON.stringify({
+        query: `${modePrefix}: ${message}`,
+        paper_id: selectedPaperId,
+      }),
     });
     if (!response.ok) {
       throw new Error(await response.text());
@@ -367,22 +404,214 @@ function appendChatMessage(role, message) {
 }
 
 function appendResearchBuddyResponse(data) {
-  const actions = (data.suggested_actions || []).map((action) => `<li>${escapeHtml(action)}</li>`).join("");
-  const references = (data.referenced_papers || [])
-    .map((paper) => `<span>${escapeHtml(paper.title)} (${escapeHtml(paper.year)})</span>`)
+  const steps = (data.reasoning_steps || [])
+    .map((step) => `<span>${escapeHtml(step.node)}: ${escapeHtml(step.status)}</span>`)
+    .join("");
+  const references = (data.sources || data.referenced_papers || [])
+    .map((source) => `<span>${escapeHtml(source.title)}${source.section ? ` · ${escapeHtml(source.section)}` : ""}</span>`)
     .join("");
   chatSurface.insertAdjacentHTML(
     "beforeend",
     `
       <div class="chat-message assistant">
         <strong>Research Buddy</strong>
-        <p>${escapeHtml(data.message)}</p>
-        ${actions ? `<ul>${actions}</ul>` : ""}
+        <p>${escapeHtml(data.answer || data.message)}</p>
+        ${steps ? `<div class="agent-steps">${steps}</div>` : ""}
         ${references ? `<div class="chat-references">${references}</div>` : ""}
       </div>
     `,
   );
+  paperAgentAnswer.innerHTML = references
+    ? `<div class="agent-response"><p>${escapeHtml(data.answer || data.message)}</p><div class="chat-references">${references}</div></div>`
+    : "";
   chatSurface.scrollTop = chatSurface.scrollHeight;
+}
+
+async function searchPaperLibrary() {
+  const query = paperSearchDraft.value.trim();
+  searchPapers.disabled = true;
+  searchPapers.textContent = "Searching";
+  paperSearchResults.innerHTML = `<div class="empty-state"><span>Searching arXiv...</span></div>`;
+  try {
+    const response = await fetch("/api/library/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, use_onboarding: !query }),
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const data = await response.json();
+    paperSearchCache = data.results || [];
+    renderPaperSearchResults(paperSearchCache);
+  } catch (error) {
+    paperSearchResults.innerHTML = `<div class="empty-state"><strong>Search failed</strong><span>${escapeHtml(messageFromError(error))}</span></div>`;
+  } finally {
+    searchPapers.disabled = false;
+    searchPapers.textContent = "Search";
+  }
+}
+
+function renderPaperSearchResults(results) {
+  if (!results.length) {
+    paperSearchResults.innerHTML = `<div class="empty-state"><strong>No results</strong><span>Try a broader research query.</span></div>`;
+    return;
+  }
+  paperSearchResults.innerHTML = results
+    .map(
+      (paper, index) => `
+        <article class="paper-result">
+          <div>
+            <span class="paper-year">${escapeHtml(paper.year || "n.d.")}</span>
+            <h3>${escapeHtml(paper.title)}</h3>
+            <p>${escapeHtml((paper.authors || []).join(", ") || "Unknown authors")}</p>
+            <p>${escapeHtml(paper.abstract || "").slice(0, 260)}</p>
+          </div>
+          <button class="secondary-button small" type="button" data-import-paper="${index}">Import</button>
+        </article>
+      `,
+    )
+    .join("");
+  paperSearchResults.querySelectorAll("[data-import-paper]").forEach((button) => {
+    button.addEventListener("click", () => importPaper(Number(button.dataset.importPaper), button));
+  });
+}
+
+async function importPaper(index, button) {
+  const paper = paperSearchCache[index];
+  if (!paper) {
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Importing";
+  try {
+    const response = await fetch("/api/library/papers/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(paper),
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const data = await response.json();
+    await fetch(`/api/reading/papers/${encodeURIComponent(data.paper.paper_id)}/index`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ full_text: "" }),
+    });
+    button.textContent = data.acquisition_error ? "Imported, PDF pending" : "Imported";
+    setStatus(data.acquisition_error ? "Paper imported without markdown" : "Paper imported", data.acquisition_error ? "" : "saved");
+    loadImportedPapers();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Import";
+    paperAgentAnswer.innerHTML = `<div class="empty-state"><strong>Import failed</strong><span>${escapeHtml(messageFromError(error))}</span></div>`;
+  }
+}
+
+async function loadImportedPapers() {
+  try {
+    const response = await fetch("/api/library/papers");
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const data = await response.json();
+    renderImportedPapers(data.papers || []);
+  } catch (error) {
+    importedPaperList.innerHTML = `<div class="empty-state"><strong>Could not load imported papers</strong><span>${escapeHtml(messageFromError(error))}</span></div>`;
+  }
+}
+
+function renderImportedPapers(papers) {
+  if (!papers.length) {
+    importedPaperList.innerHTML = `
+      <div class="empty-state">
+        <strong>No imported papers yet</strong>
+        <span>Import a recommendation below to make it available to RAG chat.</span>
+      </div>
+    `;
+    return;
+  }
+  importedPaperList.innerHTML = papers
+    .map(
+      (paper) => `
+        <article class="reading-card imported" data-read-paper="${escapeHtml(paper.paper_id)}" role="button" tabindex="0">
+          <div>
+            <span class="paper-year">${escapeHtml(paper.year || "n.d.")}</span>
+            <h3>${escapeHtml(paper.title)}</h3>
+            <p>${escapeHtml((paper.authors || []).join(", ") || "Unknown authors")}</p>
+          </div>
+          <p>${escapeHtml(paper.abstract || "Imported into the local RAG library.").slice(0, 220)}</p>
+          <span>${escapeHtml((paper.chunks || []).length)} chunks · ${escapeHtml(paper.verification_status || "unverified")}</span>
+        </article>
+      `,
+    )
+    .join("");
+  importedPaperList.querySelectorAll("[data-read-paper]").forEach((card) => {
+    card.addEventListener("click", () => loadPaperMarkdown(card.dataset.readPaper));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        loadPaperMarkdown(card.dataset.readPaper);
+      }
+    });
+  });
+}
+
+function setUnderstandingMode(mode) {
+  selectedUnderstandingMode = mode || "Explain simply";
+  understandingModeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.understandingMode === selectedUnderstandingMode);
+  });
+  updateChatContextLine();
+}
+
+function toggleChatPanel() {
+  researchChatPanel.classList.toggle("collapsed");
+  const isCollapsed = researchChatPanel.classList.contains("collapsed");
+  toggleResearchChat.title = isCollapsed ? "Expand RAG chat" : "Collapse RAG chat";
+  toggleResearchChat.querySelector("[aria-hidden='true']").textContent = isCollapsed ? "E" : "C";
+}
+
+async function loadPaperMarkdown(paperId) {
+  if (!paperId) {
+    return;
+  }
+  paperReaderTitle.textContent = "Loading Paper";
+  paperReader.textContent = "Loading markdown...";
+  try {
+    const detail = await fetch(`/api/library/papers/${encodeURIComponent(paperId)}`);
+    if (!detail.ok) {
+      throw new Error(await detail.text());
+    }
+    const paper = (await detail.json()).paper;
+    const response = await fetch(`/api/reading/papers/${encodeURIComponent(paperId)}/markdown`);
+    if (!response.ok) {
+      throw new Error("Markdown is not available yet. Download/import the PDF again or provide the PDF manually.");
+    }
+    selectedPaperId = paperId;
+    selectedPaperTitle = paper.title || "";
+    paperReaderTitle.textContent = paper.title || "Paper Reader";
+    paperReaderMeta.textContent = `${(paper.authors || []).join(", ") || "Unknown authors"}${paper.year ? ` · ${paper.year}` : ""}${(paper.chunks || []).length ? ` · ${paper.chunks.length} chunks` : ""}`;
+    paperReader.textContent = await response.text();
+    markSelectedPaper(paperId);
+    updateChatContextLine();
+  } catch (error) {
+    paperReaderTitle.textContent = "Paper Reader";
+    paperReaderMeta.textContent = "Markdown unavailable";
+    paperReader.textContent = messageFromError(error);
+  }
+}
+
+function markSelectedPaper(paperId) {
+  importedPaperList.querySelectorAll("[data-read-paper]").forEach((card) => {
+    card.classList.toggle("selected", card.dataset.readPaper === paperId);
+  });
+}
+
+function updateChatContextLine() {
+  chatContextLine.textContent = selectedPaperTitle
+    ? `${selectedUnderstandingMode} · ${selectedPaperTitle}`
+    : `${selectedUnderstandingMode} · all imported papers`;
 }
 
 function renderDashboardPaperCards(papers) {
