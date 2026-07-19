@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PhD Buddy</title>
-    <link rel="stylesheet" href="/static/styles.css?v=prelude-layout-1" />
+    <link rel="stylesheet" href="/static/styles.css?v=buddy-studio-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -329,151 +329,172 @@
         </section>
 
         <section class="view" id="dashboardView" hidden>
-          <header class="dashboard-topbar glass-panel">
-            <div>
-              <p class="eyebrow">PhD Buddy</p>
-              <h1 id="dashboardTitle">Research Buddy</h1>
-              <p class="subtitle" id="dashboardSubtitle">Start from your fundamental papers, then pick the first research goal.</p>
-            </div>
-            <button class="secondary-button" type="button" id="editOnboarding">Edit onboarding</button>
-          </header>
-
-          <div class="dashboard-layout">
-            <nav class="buddy-nav glass-panel" aria-label="Buddy sections">
-              <button type="button" class="buddy-nav-item active" data-dashboard-tab="research">
-                <span>RB</span>
-                Research Buddy
-              </button>
-              <button type="button" class="buddy-nav-item" data-dashboard-tab="schedule">
-                <span>SC</span>
-                Schedule Buddy
-              </button>
-              <button type="button" class="buddy-nav-item" data-dashboard-tab="support">
-                <span>MS</span>
-                Mental Support Buddy
-              </button>
+          <div class="buddy-studio">
+            <nav class="buddy-nav" aria-label="Buddy sections">
+              <div class="buddy-brand" aria-label="PhD Buddy">pb</div>
+              <div class="buddy-nav-group">
+                <button type="button" class="buddy-nav-item active" data-dashboard-tab="research" aria-label="Research Buddy" title="Research Buddy">
+                  <span aria-hidden="true">R</span><b>Research</b>
+                </button>
+                <button type="button" class="buddy-nav-item" data-dashboard-tab="schedule" aria-label="Task Buddy" title="Task Buddy">
+                  <span aria-hidden="true">T</span><b>Tasks</b>
+                </button>
+                <button type="button" class="buddy-nav-item" data-dashboard-tab="support" aria-label="Mental Buddy" title="Mental Buddy">
+                  <span aria-hidden="true">M</span><b>Mental</b>
+                </button>
+              </div>
+              <button class="buddy-profile" type="button" id="editOnboarding" aria-label="Edit profile" title="Edit profile">CW</button>
             </nav>
 
             <section class="dashboard-main">
-              <section class="dashboard-tab active" data-dashboard-panel="research">
-                <div class="research-workspace">
-                  <aside class="research-paper-panel glass-panel">
-                    <div class="panel-header">
-                      <div>
-                        <h2>Paper Shelf</h2>
-                        <p id="researchIdentityLine">Saved from onboarding</p>
-                      </div>
-                    </div>
-                    <div class="paper-shelf-section">
-                      <div class="section-label">Imported</div>
-                      <div class="dashboard-paper-list" id="importedPaperList"></div>
-                    </div>
-                    <div class="paper-shelf-section">
-                      <div class="section-label">Seed</div>
-                    <div class="dashboard-paper-list" id="dashboardPaperList"></div>
-                    </div>
-                  </aside>
-
-                  <main class="research-reader-column">
-                    <section class="glass-panel dashboard-card paper-reader-card">
-                      <div class="panel-header">
-                        <div>
-                          <h2 id="paperReaderTitle">Paper Reader</h2>
-                          <p id="paperReaderMeta">Click an imported paper to read its extracted markdown</p>
-                        </div>
-                      </div>
-                      <pre class="paper-reader" id="paperReader">No paper selected.</pre>
-                    </section>
-
-                    <section class="glass-panel dashboard-card">
-                    <div class="panel-header">
-                      <div>
-                        <h2>Recommended New Papers</h2>
-                        <p>Newest related papers from your subfield, venues, and search keywords</p>
-                      </div>
-                      <button class="secondary-button small" type="button" id="refreshRecommendations">Refresh</button>
-                    </div>
-                    <div class="library-tools compact">
-                      <div class="chat-input-row">
-                        <input id="paperSearchDraft" placeholder="Search arXiv or leave empty for onboarding-based recommendations" />
-                        <button class="primary-button" type="button" id="searchPapers">Search</button>
-                      </div>
-                      <div class="paper-search-results" id="paperSearchResults"></div>
-                    </div>
-                    </section>
-                  </main>
-
-                  <aside class="research-chat-panel glass-panel" id="researchChatPanel">
-                    <div class="panel-header">
-                      <div>
-                        <h2>Research Chat</h2>
-                        <p id="chatContextLine">Select a paper, then choose how you want to understand it</p>
-                      </div>
-                      <button class="icon-button" type="button" id="toggleResearchChat" title="Collapse RAG chat">
-                        <span aria-hidden="true">C</span>
-                        <span class="sr-only">Collapse RAG chat</span>
-                      </button>
-                    </div>
-                    <div class="mode-picker" id="understandingModePicker" aria-label="Understanding mode">
-                      <button type="button" class="active" data-understanding-mode="Explain simply">Explain simply</button>
-                      <button type="button" data-understanding-mode="Method walkthrough">Method</button>
-                      <button type="button" data-understanding-mode="Experiment critique">Critique</button>
-                      <button type="button" data-understanding-mode="Advisor meeting prep">Advisor prep</button>
-                      <button type="button" data-understanding-mode="Connect to my research">Connect</button>
-                    </div>
-                    <div class="chat-surface">
-                      <div class="chat-message assistant">
-                        <strong>Research Buddy</strong>
-                        <p id="researchBuddyPrompt">Select an imported paper, choose a mode, then ask grounded questions about the material.</p>
-                      </div>
-                    </div>
-                    <div class="chat-input-row">
-                      <input id="chatDraft" placeholder="Ask imported papers" />
-                      <button class="primary-button" type="button" id="askResearchBuddy">Ask</button>
-                    </div>
-                    <div class="agent-answer" id="paperAgentAnswer"></div>
-                  </aside>
+              <header class="dashboard-topbar">
+                <div>
+                  <p class="eyebrow">Your PhD workspace</p>
+                  <h1 id="dashboardTitle">Research Buddy</h1>
+                  <p class="subtitle" id="dashboardSubtitle">A calm place to discover, queue, and deeply read the papers that matter.</p>
                 </div>
+                <div class="topbar-actions">
+                  <button class="round-action" type="button" aria-label="Search">⌕</button>
+                  <button class="round-action has-dot" type="button" aria-label="Notifications">○</button>
+                  <div class="profile-lockup"><span>Good afternoon</span><strong id="studentName">Researcher</strong></div>
+                </div>
+              </header>
+
+              <section class="dashboard-tab active" data-dashboard-panel="research">
+                <section class="research-home active" id="researchHome">
+                  <section class="research-hero">
+                    <div class="hero-copy">
+                      <span class="soft-tag">THIS WEEK</span>
+                      <h2>Build momentum,<br />one paper at a time.</h2>
+                      <p id="researchIdentityLine">Your reading recommendations are tuned to your research profile.</p>
+                    </div>
+                    <div class="hero-orbit" aria-hidden="true"><span></span><span></span><span></span></div>
+                    <div class="hero-stats">
+                      <div><strong id="queueCount">0</strong><span>ready to read</span></div>
+                      <div><strong id="progressCount">0</strong><span>in progress</span></div>
+                    </div>
+                  </section>
+
+                  <section class="readlist-section">
+                    <div class="section-heading">
+                      <div><p class="section-kicker">MY LIBRARY</p><h2>Readlist</h2></div>
+                      <div class="readlist-legend"><span><i class="dot coral"></i>In progress</span><span><i class="dot mint"></i>Ready to read</span></div>
+                    </div>
+                    <div class="readlist-board" id="importedPaperList"></div>
+                  </section>
+
+                  <section class="recommendation-card">
+                    <div class="section-heading recommendation-heading">
+                      <div>
+                        <p class="section-kicker">PICKED FOR YOUR RESEARCH</p>
+                        <h2>Recommended papers</h2>
+                        <p>Review the fit, add a paper to your readlist, then start when you are ready.</p>
+                      </div>
+                      <button class="secondary-button small" type="button" id="refreshRecommendations">Refresh picks</button>
+                    </div>
+                    <div class="paper-search-bar">
+                      <input id="paperSearchDraft" aria-label="Search papers" placeholder="Search a topic, method, author, or venue" />
+                      <button class="primary-button" type="button" id="searchPapers">Find papers</button>
+                    </div>
+                    <div class="paper-search-results" id="paperSearchResults"></div>
+                  </section>
+
+                  <section class="foundation-card">
+                    <div class="section-heading compact-heading">
+                      <div><p class="section-kicker">FROM ONBOARDING</p><h2>Foundation shelf</h2></div>
+                    </div>
+                    <div class="dashboard-paper-list" id="dashboardPaperList"></div>
+                  </section>
+                </section>
+
+                <section class="reader-view" id="readerView" hidden>
+                  <div class="reader-toolbar">
+                    <button class="back-button" type="button" id="backToReadlist">← <span>Back to readlist</span></button>
+                    <div class="reader-progress-control">
+                      <label for="readingProgress">Reading progress</label>
+                      <input id="readingProgress" type="range" min="0" max="100" step="5" value="0" />
+                      <strong id="readingProgressLabel">0%</strong>
+                    </div>
+                  </div>
+
+                  <div class="reader-layout">
+                    <aside class="reader-outline">
+                      <span class="soft-tag mint-tag">PAPER MAP</span>
+                      <nav aria-label="Paper sections">
+                        <button type="button" class="active">Overview <span>01</span></button>
+                        <button type="button">Introduction <span>02</span></button>
+                        <button type="button">Method <span>03</span></button>
+                        <button type="button">Experiments <span>04</span></button>
+                        <button type="button">Discussion <span>05</span></button>
+                      </nav>
+                      <div class="reading-tip"><span>✦</span><p>Try “Method” mode when the paper gets dense.</p></div>
+                    </aside>
+
+                    <main class="paper-reader-card">
+                      <header class="paper-reader-header">
+                        <span class="paper-type">RESEARCH PAPER</span>
+                        <h2 id="paperReaderTitle">Paper Reader</h2>
+                        <p id="paperReaderMeta">Choose a paper from your readlist to begin.</p>
+                      </header>
+                      <article class="paper-reader" id="paperReader"><p class="reader-empty">No paper selected.</p></article>
+                    </main>
+
+                    <aside class="research-chat-panel" id="researchChatPanel">
+                      <div class="panel-header">
+                        <div><span class="soft-tag lavender-tag">AI READING PARTNER</span><h2>Research Buddy</h2><p id="chatContextLine">Ask questions grounded in this paper.</p></div>
+                        <button class="icon-button" type="button" id="toggleResearchChat" title="Collapse Research Buddy"><span aria-hidden="true">–</span><span class="sr-only">Collapse Research Buddy</span></button>
+                      </div>
+                      <div class="mode-picker" id="understandingModePicker" aria-label="Understanding mode">
+                        <button type="button" class="active" data-understanding-mode="Explain simply">Explain simply</button>
+                        <button type="button" data-understanding-mode="Method walkthrough">Method</button>
+                        <button type="button" data-understanding-mode="Experiment critique">Critique</button>
+                        <button type="button" data-understanding-mode="Advisor meeting prep">Advisor prep</button>
+                        <button type="button" data-understanding-mode="Connect to my research">Connect</button>
+                      </div>
+                      <div class="chat-surface">
+                        <div class="chat-message assistant"><strong>Research Buddy</strong><p id="researchBuddyPrompt">Open a paper and I’ll help you understand it section by section.</p></div>
+                      </div>
+                      <div class="chat-input-row">
+                        <input id="chatDraft" placeholder="Ask about this paper…" />
+                        <button class="primary-button" type="button" id="askResearchBuddy">Ask</button>
+                      </div>
+                      <div class="agent-answer" id="paperAgentAnswer"></div>
+                    </aside>
+                  </div>
+                </section>
               </section>
 
               <section class="dashboard-tab" data-dashboard-panel="schedule">
-                <div class="dashboard-grid">
-                  <section class="glass-panel dashboard-card">
-                    <h2>Next Planning Step</h2>
-                    <p class="card-copy">Use milestones, goals, and weekly availability from onboarding to propose a research week.</p>
+                <div class="buddy-bento task-bento">
+                  <section class="bento-card focus-banner">
+                    <div><span class="soft-tag">TODAY’S FOCUS</span><h2>Make the next step feel small.</h2><p>Three clear tasks, one protected focus block, no heroic schedule required.</p></div>
+                    <div class="focus-ring"><strong>2h</strong><span>focus time</span></div>
                   </section>
-                  <section class="glass-panel dashboard-card">
-                    <h2>Weekly Rhythm</h2>
-                    <div class="mini-timeline">
-                      <span>Deep work</span>
-                      <span>Reading</span>
-                      <span>Writing</span>
-                      <span>Advisor prep</span>
-                    </div>
+                  <section class="bento-card task-list-card">
+                    <div class="section-heading compact-heading"><div><p class="section-kicker">TODAY</p><h2>Priority tasks</h2></div><button class="round-action" type="button" aria-label="Add task">+</button></div>
+                    <label class="task-row"><input type="checkbox" /><span><strong>Finish method notes</strong><small>Research · 45 min</small></span><i class="priority coral-bg">High</i></label>
+                    <label class="task-row"><input type="checkbox" /><span><strong>Read one queued paper</strong><small>Reading · 35 min</small></span><i class="priority mint-bg">Calm</i></label>
+                    <label class="task-row"><input type="checkbox" /><span><strong>Draft advisor update</strong><small>Writing · 25 min</small></span><i class="priority lavender-bg">Next</i></label>
                   </section>
+                  <section class="bento-card week-card"><p class="section-kicker">WEEKLY RHYTHM</p><h2>July 20–26</h2><div class="week-bars"><span style="--load:72%">M</span><span style="--load:48%">T</span><span style="--load:85%">W</span><span style="--load:38%">T</span><span style="--load:62%">F</span></div><p class="gentle-note">Wednesday is full. Keep Thursday intentionally light.</p></section>
+                  <section class="bento-card milestones-card"><p class="section-kicker">UP NEXT</p><h2>Milestones</h2><div class="milestone"><i></i><span><strong>Advisor meeting</strong><small>Friday · 11:00 AM</small></span></div><div class="milestone"><i></i><span><strong>Literature map v1</strong><small>In 8 days</small></span></div></section>
                 </div>
               </section>
 
               <section class="dashboard-tab" data-dashboard-panel="support">
-                <div class="dashboard-grid">
-                  <section class="glass-panel dashboard-card">
-                    <h2>Mental Support Buddy</h2>
-                    <p class="card-copy">A low-pressure check-in space based on pain points and work preferences.</p>
-                    <div class="support-checkin">
-                      <button type="button">Feeling stuck</button>
-                      <button type="button">Need structure</button>
-                      <button type="button">Low motivation</button>
-                    </div>
-                  </section>
+                <div class="buddy-bento mental-bento">
+                  <section class="bento-card mental-banner"><div><span class="soft-tag lavender-tag">A QUIET CHECK-IN</span><h2>How are you arriving today?</h2><p>You do not need to solve the whole PhD. Let’s name what is here and choose one kind next step.</p></div><div class="mood-orb" aria-hidden="true"></div></section>
+                  <section class="bento-card checkin-card"><p class="section-kicker">RIGHT NOW</p><h2>Choose what feels closest</h2><div class="support-checkin"><button type="button">I feel stuck</button><button type="button">I’m overwhelmed</button><button type="button">I need structure</button><button type="button">I’m doing okay</button></div><div class="checkin-response" aria-live="polite">Pick one. Mental Buddy will meet you there without judgment.</div></section>
+                  <section class="bento-card reset-card"><span class="breath-circle" aria-hidden="true"></span><div><p class="section-kicker">60-SECOND RESET</p><h2>Breathe before deciding.</h2><p>Inhale for four. Exhale for six. Then choose the smallest useful action.</p></div><button class="secondary-button" type="button">Start reset</button></section>
+                  <section class="bento-card permission-card"><p>“A slower day is still part of the work.”</p><span>— Mental Buddy</span></section>
                 </div>
               </section>
-
             </section>
           </div>
         </section>
       </section>
     </main>
 
-    <script src="/static/app.js?v=prelude-layout-1" type="module"></script>
+    <script src="/static/app.js?v=buddy-studio-1" type="module"></script>
   </body>
 </html>

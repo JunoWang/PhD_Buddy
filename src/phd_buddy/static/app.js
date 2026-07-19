@@ -21,6 +21,14 @@ const dashboardTitle = document.querySelector("#dashboardTitle");
 const dashboardSubtitle = document.querySelector("#dashboardSubtitle");
 const dashboardPaperList = document.querySelector("#dashboardPaperList");
 const importedPaperList = document.querySelector("#importedPaperList");
+const researchHome = document.querySelector("#researchHome");
+const readerView = document.querySelector("#readerView");
+const backToReadlist = document.querySelector("#backToReadlist");
+const readingProgress = document.querySelector("#readingProgress");
+const readingProgressLabel = document.querySelector("#readingProgressLabel");
+const queueCount = document.querySelector("#queueCount");
+const progressCount = document.querySelector("#progressCount");
+const studentName = document.querySelector("#studentName");
 const paperReaderTitle = document.querySelector("#paperReaderTitle");
 const paperReaderMeta = document.querySelector("#paperReaderMeta");
 const paperReader = document.querySelector("#paperReader");
@@ -62,9 +70,11 @@ let currentStep = 0;
 let currentPlan = null;
 let selectedGoal = "";
 let paperSearchCache = [];
+let importedPapersCache = [];
 let selectedPaperId = "";
 let selectedPaperTitle = "";
 let selectedUnderstandingMode = "Explain simply";
+let readingProgressByPaper = loadReadingProgress();
 
 const storedUser = loadSession();
 if (storedUser) {
@@ -199,6 +209,8 @@ askResearchBuddy.addEventListener("click", askResearchQuestion);
 searchPapers.addEventListener("click", searchPaperLibrary);
 refreshRecommendations.addEventListener("click", searchPaperLibrary);
 toggleResearchChat.addEventListener("click", toggleChatPanel);
+backToReadlist.addEventListener("click", showResearchHome);
+readingProgress.addEventListener("input", updateReadingProgress);
 understandingModeButtons.forEach((button) => {
   button.addEventListener("click", () => setUnderstandingMode(button.dataset.understandingMode));
 });
@@ -216,6 +228,26 @@ paperSearchDraft.addEventListener("keydown", (event) => {
 });
 editOnboarding.addEventListener("click", () => {
   showOnboarding();
+});
+
+document.querySelectorAll(".support-checkin button").forEach((button) => {
+  button.addEventListener("click", () => {
+    const response = button.closest(".checkin-card")?.querySelector(".checkin-response");
+    document.querySelectorAll(".support-checkin button").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    if (response) {
+      response.textContent = mentalBuddyResponse(button.textContent.trim());
+    }
+  });
+});
+
+document.querySelectorAll(".reader-outline nav button").forEach((button, index) => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".reader-outline nav button").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    const heading = paperReader.querySelectorAll("h1, h2, h3")[Math.max(0, index - 1)];
+    (heading || paperReader).scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 });
 
 function showAuth() {
@@ -323,14 +355,17 @@ function showDashboard(data) {
 
 function showDashboardTab(tab) {
   const labels = {
-    research: ["Research Buddy", "Search, import, chunk, and query papers through one RAG workspace."],
-    schedule: ["Schedule Buddy", "Turn milestones and weekly availability into a calm research rhythm."],
-    support: ["Mental Support Buddy", "Use low-pressure check-ins and structure when the PhD feels heavy."],
+    research: ["Research Buddy", "A calm place to discover, queue, and deeply read the papers that matter."],
+    schedule: ["Task Buddy", "Turn milestones into a realistic week and a small, useful next step."],
+    support: ["Mental Buddy", "A private, low-pressure place to pause, name what is hard, and reset."],
   };
   dashboardTabs.forEach((button) => button.classList.toggle("active", button.dataset.dashboardTab === tab));
   dashboardPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.dashboardPanel === tab));
   dashboardTitle.textContent = labels[tab][0];
   dashboardSubtitle.textContent = labels[tab][1];
+  if (tab === "research") {
+    showResearchHome();
+  }
 }
 
 function renderDashboard(plan) {
@@ -341,6 +376,7 @@ function renderDashboard(plan) {
   const researchLine = [profile.major_field, subdomains.join(", ")].filter(Boolean).join(" / ");
 
   researchIdentityLine.textContent = researchLine || "Research identity saved from onboarding";
+  studentName.textContent = student.preferred_name || student.name || profile.preferred_name || profile.name || "Researcher";
   researchBuddyPrompt.textContent = `I found ${papers.length} seed papers for ${researchLine || "your research area"}. Select an imported paper and I will answer from its chunked RAG context.`;
   resetChatSurface(researchBuddyPrompt.textContent);
   dashboardPaperList.innerHTML = renderDashboardPaperCards(papers);
@@ -454,7 +490,7 @@ async function searchPaperLibrary() {
 
 function renderPaperSearchResults(results) {
   if (!results.length) {
-    paperSearchResults.innerHTML = `<div class="empty-state"><strong>No results</strong><span>Try a broader research query.</span></div>`;
+    paperSearchResults.innerHTML = `<div class="empty-state"><strong>No recommendations yet</strong><span>Try a broader topic, method, author, or venue.</span></div>`;
     return;
   }
   paperSearchResults.innerHTML = results
@@ -467,7 +503,7 @@ function renderPaperSearchResults(results) {
             <p>${escapeHtml((paper.authors || []).join(", ") || "Unknown authors")}</p>
             <p>${escapeHtml(paper.abstract || "").slice(0, 260)}</p>
           </div>
-          <button class="secondary-button small" type="button" data-import-paper="${index}">Import</button>
+          <button class="secondary-button small" type="button" data-import-paper="${index}">+ Add to readlist</button>
         </article>
       `,
     )
@@ -483,7 +519,7 @@ async function importPaper(index, button) {
     return;
   }
   button.disabled = true;
-  button.textContent = "Importing";
+  button.textContent = "Adding…";
   try {
     const response = await fetch("/api/library/papers/import", {
       method: "POST",
@@ -499,12 +535,14 @@ async function importPaper(index, button) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ full_text: "" }),
     });
-    button.textContent = data.acquisition_error ? "Imported, PDF pending" : "Imported";
-    setStatus(data.acquisition_error ? "Paper imported without markdown" : "Paper imported", data.acquisition_error ? "" : "saved");
-    loadImportedPapers();
+    readingProgressByPaper[data.paper.paper_id] = 0;
+    saveReadingProgress();
+    button.textContent = data.acquisition_error ? "Added · PDF pending" : "Added to readlist ✓";
+    setStatus(data.acquisition_error ? "Added to readlist · PDF pending" : "Added to readlist", data.acquisition_error ? "" : "saved");
+    await loadImportedPapers();
   } catch (error) {
     button.disabled = false;
-    button.textContent = "Import";
+    button.textContent = "+ Add to readlist";
     paperAgentAnswer.innerHTML = `<div class="empty-state"><strong>Import failed</strong><span>${escapeHtml(messageFromError(error))}</span></div>`;
   }
 }
@@ -523,38 +561,71 @@ async function loadImportedPapers() {
 }
 
 function renderImportedPapers(papers) {
+  importedPapersCache = papers;
   if (!papers.length) {
     importedPaperList.innerHTML = `
       <div class="empty-state">
-        <strong>No imported papers yet</strong>
-        <span>Import a recommendation below to make it available to RAG chat.</span>
+        <strong>Your readlist is ready for its first paper</strong>
+        <span>Choose “Add to readlist” on a recommendation below. It will land here as ready to read.</span>
       </div>
     `;
+    queueCount.textContent = "0";
+    progressCount.textContent = "0";
     return;
   }
-  importedPaperList.innerHTML = papers
-    .map(
-      (paper) => `
-        <article class="reading-card imported" data-read-paper="${escapeHtml(paper.paper_id)}" role="button" tabindex="0">
-          <div>
-            <span class="paper-year">${escapeHtml(paper.year || "n.d.")}</span>
-            <h3>${escapeHtml(paper.title)}</h3>
-            <p>${escapeHtml((paper.authors || []).join(", ") || "Unknown authors")}</p>
-          </div>
-          <p>${escapeHtml(paper.abstract || "Imported into the local RAG library.").slice(0, 220)}</p>
-          <span>${escapeHtml((paper.chunks || []).length)} chunks · ${escapeHtml(paper.verification_status || "unverified")}</span>
-        </article>
-      `,
-    )
-    .join("");
+
+  const groups = {
+    progress: papers.filter((paper) => paperProgress(paper.paper_id) > 0 && paperProgress(paper.paper_id) < 100),
+    ready: papers.filter((paper) => paperProgress(paper.paper_id) === 0),
+    finished: papers.filter((paper) => paperProgress(paper.paper_id) === 100),
+  };
+  queueCount.textContent = String(groups.ready.length);
+  progressCount.textContent = String(groups.progress.length);
+  importedPaperList.innerHTML = [
+    renderReadlistLane("In progress", "Continue where you left off", groups.progress, "progress"),
+    renderReadlistLane("Ready to read", "Saved for your next session", groups.ready, "ready"),
+    groups.finished.length ? renderReadlistLane("Completed", "Finished papers", groups.finished, "finished") : "",
+  ].join("");
+
   importedPaperList.querySelectorAll("[data-read-paper]").forEach((card) => {
     card.addEventListener("click", () => loadPaperMarkdown(card.dataset.readPaper));
     card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
         loadPaperMarkdown(card.dataset.readPaper);
       }
     });
   });
+}
+
+function renderReadlistLane(title, subtitle, papers, state) {
+  const emptyCopy = state === "progress"
+    ? "Start a ready paper and it will move here automatically."
+    : "Add one of the recommendations below to build your queue.";
+  return `
+    <section class="readlist-lane">
+      <div class="lane-label"><strong>${title}</strong><span>${subtitle}</span></div>
+      <div class="lane-papers">
+        ${papers.length ? papers.map((paper) => renderReadlistCard(paper, state)).join("") : `<div class="empty-state"><span>${emptyCopy}</span></div>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderReadlistCard(paper, state) {
+  const progress = paperProgress(paper.paper_id);
+  const action = progress > 0 && progress < 100 ? "Continue reading" : progress === 100 ? "Read again" : "Start reading";
+  const status = progress === 100 ? "Completed" : progress > 0 ? `${progress}% read` : "Ready";
+  return `
+    <article class="reading-card imported ${state}" data-read-paper="${escapeHtml(paper.paper_id)}" role="button" tabindex="0" aria-label="${escapeHtml(action)}: ${escapeHtml(paper.title)}">
+      <div class="reading-card-top"><span class="status-chip">${status}</span><span>${escapeHtml(paper.year || "n.d.")}</span></div>
+      <div><h3>${escapeHtml(paper.title)}</h3><p>${escapeHtml((paper.authors || []).join(", ") || "Unknown authors")}</p></div>
+      <div class="reading-card-actions">
+        <span><strong>${action} →</strong></span>
+        <div class="progress-track" aria-label="${progress}% read"><i style="--progress:${progress}%"></i></div>
+      </div>
+    </article>
+  `;
 }
 
 function setUnderstandingMode(mode) {
@@ -569,15 +640,19 @@ function toggleChatPanel() {
   researchChatPanel.classList.toggle("collapsed");
   const isCollapsed = researchChatPanel.classList.contains("collapsed");
   toggleResearchChat.title = isCollapsed ? "Expand RAG chat" : "Collapse RAG chat";
-  toggleResearchChat.querySelector("[aria-hidden='true']").textContent = isCollapsed ? "E" : "C";
+  toggleResearchChat.querySelector("[aria-hidden='true']").textContent = isCollapsed ? "+" : "–";
 }
 
 async function loadPaperMarkdown(paperId) {
   if (!paperId) {
     return;
   }
+  selectedPaperId = paperId;
+  readingProgress.value = String(paperProgress(paperId));
+  readingProgressLabel.textContent = `${paperProgress(paperId)}%`;
+  showReaderView();
   paperReaderTitle.textContent = "Loading Paper";
-  paperReader.textContent = "Loading markdown...";
+  paperReader.innerHTML = `<p class="reader-empty">Preparing the paper…</p>`;
   try {
     const detail = await fetch(`/api/library/papers/${encodeURIComponent(paperId)}`);
     if (!detail.ok) {
@@ -588,18 +663,120 @@ async function loadPaperMarkdown(paperId) {
     if (!response.ok) {
       throw new Error("Markdown is not available yet. Download/import the PDF again or provide the PDF manually.");
     }
-    selectedPaperId = paperId;
     selectedPaperTitle = paper.title || "";
+    if (paperProgress(paperId) === 0) {
+      readingProgressByPaper[paperId] = 5;
+      readingProgress.value = "5";
+      readingProgressLabel.textContent = "5%";
+      saveReadingProgress();
+    }
     paperReaderTitle.textContent = paper.title || "Paper Reader";
     paperReaderMeta.textContent = `${(paper.authors || []).join(", ") || "Unknown authors"}${paper.year ? ` · ${paper.year}` : ""}${(paper.chunks || []).length ? ` · ${paper.chunks.length} chunks` : ""}`;
-    paperReader.textContent = await response.text();
+    paperReader.innerHTML = renderMarkdownDocument(await response.text());
     markSelectedPaper(paperId);
     updateChatContextLine();
+    researchBuddyPrompt.textContent = `I’m reading “${selectedPaperTitle}” with you. Pick a mode or ask about any claim, method, or experiment.`;
+    resetChatSurface(researchBuddyPrompt.textContent);
   } catch (error) {
     paperReaderTitle.textContent = "Paper Reader";
     paperReaderMeta.textContent = "Markdown unavailable";
-    paperReader.textContent = messageFromError(error);
+    paperReader.innerHTML = `<p class="reader-empty">${escapeHtml(messageFromError(error))}</p>`;
   }
+}
+
+function showReaderView() {
+  researchHome.hidden = true;
+  researchHome.classList.remove("active");
+  readerView.hidden = false;
+  dashboardTitle.textContent = "Reading room";
+  dashboardSubtitle.textContent = "Read with a clear paper map, lightweight progress, and grounded help beside you.";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showResearchHome() {
+  readerView.hidden = true;
+  researchHome.hidden = false;
+  researchHome.classList.add("active");
+  dashboardTitle.textContent = "Research Buddy";
+  dashboardSubtitle.textContent = "A calm place to discover, queue, and deeply read the papers that matter.";
+  if (importedPapersCache.length) {
+    renderImportedPapers(importedPapersCache);
+  }
+}
+
+function updateReadingProgress() {
+  if (!selectedPaperId) {
+    return;
+  }
+  const progress = Number(readingProgress.value);
+  readingProgressByPaper[selectedPaperId] = progress;
+  readingProgressLabel.textContent = `${progress}%`;
+  saveReadingProgress();
+  if (progress === 100) {
+    setStatus("Paper marked complete", "saved");
+  }
+}
+
+function paperProgress(paperId) {
+  const value = Number(readingProgressByPaper[paperId] || 0);
+  return Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
+}
+
+function loadReadingProgress() {
+  try {
+    return JSON.parse(localStorage.getItem("phdBuddyReadingProgress") || "{}") || {};
+  } catch {
+    return {};
+  }
+}
+
+function saveReadingProgress() {
+  localStorage.setItem("phdBuddyReadingProgress", JSON.stringify(readingProgressByPaper));
+}
+
+function renderMarkdownDocument(markdown) {
+  const safe = escapeHtml(markdown || "").replace(/\r\n/g, "\n");
+  const lines = safe.split("\n");
+  const html = [];
+  let listType = "";
+  const closeList = () => {
+    if (listType) {
+      html.push(`</${listType}>`);
+      listType = "";
+    }
+  };
+  lines.forEach((line) => {
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const unordered = line.match(/^[-*]\s+(.+)$/);
+    const ordered = line.match(/^\d+\.\s+(.+)$/);
+    if (heading) {
+      closeList();
+      const level = heading[1].length;
+      html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+    } else if (unordered || ordered) {
+      const nextType = unordered ? "ul" : "ol";
+      if (listType !== nextType) {
+        closeList();
+        listType = nextType;
+        html.push(`<${listType}>`);
+      }
+      html.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
+    } else if (line.trim()) {
+      closeList();
+      html.push(`<p>${inlineMarkdown(line)}</p>`);
+    } else {
+      closeList();
+    }
+  });
+  closeList();
+  return html.join("") || `<p class="reader-empty">This paper does not have readable text yet.</p>`;
+}
+
+function inlineMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code>$1</code>");
 }
 
 function markSelectedPaper(paperId) {
@@ -668,6 +845,16 @@ function renderPapers(papers) {
       `,
     )
     .join("");
+}
+
+function mentalBuddyResponse(feeling) {
+  const responses = {
+    "I feel stuck": "Let’s lower the bar: write one sentence describing the exact point where momentum stopped.",
+    "I’m overwhelmed": "Nothing needs to be solved all at once. Choose one task to protect and let the rest wait for today.",
+    "I need structure": "Try a 25-minute block: 5 minutes to define done, 15 minutes to work, 5 minutes to leave a restart note.",
+    "I’m doing okay": "Good. Notice what is helping today, and protect a little of that steadiness for tomorrow.",
+  };
+  return responses[feeling] || "Name what is here, then choose the smallest kind action that would help.";
 }
 
 function setStatus(message, state) {
