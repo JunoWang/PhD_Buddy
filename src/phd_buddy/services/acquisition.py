@@ -35,13 +35,19 @@ def acquire_pdf_markdown(paper_id: str, library_dir: Path | None = None) -> tupl
     _download(paper.pdf_url, pdf_path)
     markdown = pdf_to_markdown(pdf_path, title=paper.title)
     markdown_path.write_text(markdown, encoding="utf-8")
+    extraction = pdf_extraction_report(pdf_path, markdown)
 
     now = datetime.now(UTC).isoformat()
     assets = [asset for asset in paper.assets if asset.kind not in {"pdf", "markdown"}]
     assets.extend(
         [
             PaperAsset(kind="pdf", uri=str(pdf_path), created_at=now, metadata={"source_url": paper.pdf_url}),
-            PaperAsset(kind="markdown", uri=str(markdown_path), created_at=now, metadata={"source": "pdf_extract"}),
+            PaperAsset(
+                kind="markdown",
+                uri=str(markdown_path),
+                created_at=now,
+                metadata={"source": "pdf_extract", **extraction},
+            ),
         ]
     )
     updated = Paper(
@@ -77,7 +83,7 @@ def pdf_to_markdown(pdf_path: Path, *, title: str = "") -> str:
         text = page.extract_text() or ""
         text = _normalize_text(text)
         if not text:
-            continue
+            text = "> This page has no extractable text. Switch to Original PDF to view the complete page."
         lines.extend([f"## Page {index}", "", text, ""])
     return "\n".join(lines).strip() + "\n"
 
@@ -87,6 +93,40 @@ def markdown_asset_path(paper: Paper) -> Path | None:
         if asset.kind == "markdown" and asset.uri:
             return Path(asset.uri)
     return None
+
+
+def pdf_asset_path(paper: Paper) -> Path | None:
+    """Return the locally stored source PDF, when acquisition succeeded."""
+
+    for asset in paper.assets:
+        if asset.kind == "pdf" and asset.uri:
+            return Path(asset.uri)
+    return None
+
+
+def pdf_extraction_report(pdf_path: Path, markdown: str = "") -> dict[str, object]:
+    """Describe whether every source page yielded readable text.
+
+    The original PDF remains the completeness authority because text extraction
+    cannot faithfully represent image-only pages, figures, or equations.
+    """
+
+    reader = PdfReader(str(pdf_path))
+    missing_pages: list[int] = []
+    extracted_page_count = 0
+    for index, page in enumerate(reader.pages, start=1):
+        if _normalize_text(page.extract_text() or ""):
+            extracted_page_count += 1
+        else:
+            missing_pages.append(index)
+    return {
+        "page_count": len(reader.pages),
+        "extracted_page_count": extracted_page_count,
+        "missing_text_pages": missing_pages,
+        "text_extraction_complete": not missing_pages,
+        "character_count": len(markdown),
+        "word_count": len(re.findall(r"\S+", markdown)),
+    }
 
 
 def _download(url: str, destination: Path) -> None:

@@ -32,6 +32,9 @@ const studentName = document.querySelector("#studentName");
 const paperReaderTitle = document.querySelector("#paperReaderTitle");
 const paperReaderMeta = document.querySelector("#paperReaderMeta");
 const paperReader = document.querySelector("#paperReader");
+const paperContentStatus = document.querySelector("#paperContentStatus");
+const paperPdfViewer = document.querySelector("#paperPdfViewer");
+const readerModeButtons = document.querySelectorAll("[data-reader-mode]");
 const researchIdentityLine = document.querySelector("#researchIdentityLine");
 const researchBuddyPrompt = document.querySelector("#researchBuddyPrompt");
 const chatContextLine = document.querySelector("#chatContextLine");
@@ -75,6 +78,7 @@ let selectedPaperId = "";
 let selectedPaperTitle = "";
 let selectedUnderstandingMode = "Explain simply";
 let readingProgressByPaper = loadReadingProgress();
+let sourcePdfAvailable = false;
 
 const storedUser = loadSession();
 if (storedUser) {
@@ -211,6 +215,9 @@ refreshRecommendations.addEventListener("click", searchPaperLibrary);
 toggleResearchChat.addEventListener("click", toggleChatPanel);
 backToReadlist.addEventListener("click", showResearchHome);
 readingProgress.addEventListener("input", updateReadingProgress);
+readerModeButtons.forEach((button) => {
+  button.addEventListener("click", () => setReaderMode(button.dataset.readerMode));
+});
 understandingModeButtons.forEach((button) => {
   button.addEventListener("click", () => setUnderstandingMode(button.dataset.understandingMode));
 });
@@ -651,18 +658,28 @@ async function loadPaperMarkdown(paperId) {
   readingProgress.value = String(paperProgress(paperId));
   readingProgressLabel.textContent = `${paperProgress(paperId)}%`;
   showReaderView();
+  sourcePdfAvailable = false;
+  setReaderMode("text");
+  readerModeButtons.forEach((button) => {
+    button.disabled = button.dataset.readerMode === "pdf";
+  });
+  paperContentStatus.className = "content-status checking";
+  paperContentStatus.textContent = "Checking full content…";
   paperReaderTitle.textContent = "Loading Paper";
   paperReader.innerHTML = `<p class="reader-empty">Preparing the paper…</p>`;
   try {
-    const detail = await fetch(`/api/library/papers/${encodeURIComponent(paperId)}`);
+    const [detail, response] = await Promise.all([
+      fetch(`/api/library/papers/${encodeURIComponent(paperId)}`),
+      fetch(`/api/reading/papers/${encodeURIComponent(paperId)}/content`),
+    ]);
     if (!detail.ok) {
       throw new Error(await detail.text());
     }
     const paper = (await detail.json()).paper;
-    const response = await fetch(`/api/reading/papers/${encodeURIComponent(paperId)}/markdown`);
     if (!response.ok) {
-      throw new Error("Markdown is not available yet. Download/import the PDF again or provide the PDF manually.");
+      throw new Error("Full paper content is not available yet. Import the PDF again or provide the PDF manually.");
     }
+    const content = await response.json();
     selectedPaperTitle = paper.title || "";
     if (paperProgress(paperId) === 0) {
       readingProgressByPaper[paperId] = 5;
@@ -671,16 +688,56 @@ async function loadPaperMarkdown(paperId) {
       saveReadingProgress();
     }
     paperReaderTitle.textContent = paper.title || "Paper Reader";
-    paperReaderMeta.textContent = `${(paper.authors || []).join(", ") || "Unknown authors"}${paper.year ? ` · ${paper.year}` : ""}${(paper.chunks || []).length ? ` · ${paper.chunks.length} chunks` : ""}`;
-    paperReader.innerHTML = renderMarkdownDocument(await response.text());
+    const pageSummary = content.page_count ? `${content.page_count} pages` : "Page count unavailable";
+    const wordSummary = content.word_count ? `${Number(content.word_count).toLocaleString()} words` : "";
+    paperReaderMeta.textContent = `${(paper.authors || []).join(", ") || "Unknown authors"}${paper.year ? ` · ${paper.year}` : ""} · ${pageSummary}${wordSummary ? ` · ${wordSummary}` : ""}`;
+    paperReader.innerHTML = renderMarkdownDocument(content.markdown);
+    sourcePdfAvailable = Boolean(content.source_pdf_available);
+    paperPdfViewer.src = sourcePdfAvailable
+      ? `/api/reading/papers/${encodeURIComponent(paperId)}/pdf#page=1&view=FitH`
+      : "";
+    const pdfButton = [...readerModeButtons].find((button) => button.dataset.readerMode === "pdf");
+    if (pdfButton) {
+      pdfButton.disabled = !sourcePdfAvailable;
+    }
+    updatePaperContentStatus(content);
     markSelectedPaper(paperId);
     updateChatContextLine();
     researchBuddyPrompt.textContent = `I’m reading “${selectedPaperTitle}” with you. Pick a mode or ask about any claim, method, or experiment.`;
     resetChatSurface(researchBuddyPrompt.textContent);
   } catch (error) {
     paperReaderTitle.textContent = "Paper Reader";
-    paperReaderMeta.textContent = "Markdown unavailable";
+    paperReaderMeta.textContent = "Paper content unavailable";
+    paperContentStatus.className = "content-status incomplete";
+    paperContentStatus.textContent = "Content could not be verified";
     paperReader.innerHTML = `<p class="reader-empty">${escapeHtml(messageFromError(error))}</p>`;
+  }
+}
+
+function setReaderMode(mode) {
+  const nextMode = mode === "pdf" && sourcePdfAvailable ? "pdf" : "text";
+  paperReader.hidden = nextMode !== "text";
+  paperPdfViewer.hidden = nextMode !== "pdf";
+  readerModeButtons.forEach((button) => {
+    const isActive = button.dataset.readerMode === nextMode;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+}
+
+function updatePaperContentStatus(content) {
+  const totalPages = Number(content.page_count || 0);
+  const extractedPages = Number(content.extracted_page_count || 0);
+  paperContentStatus.className = "content-status";
+  if (content.source_pdf_available && content.text_extraction_complete) {
+    paperContentStatus.textContent = `Full source · ${totalPages}/${totalPages} pages extracted`;
+    paperContentStatus.classList.add("complete");
+  } else if (content.source_pdf_available) {
+    paperContentStatus.textContent = `Full PDF available · ${extractedPages}/${totalPages} text pages`;
+    paperContentStatus.classList.add("partial");
+  } else {
+    paperContentStatus.textContent = `${extractedPages || totalPages} text pages · source PDF unavailable`;
+    paperContentStatus.classList.add("incomplete");
   }
 }
 
@@ -739,36 +796,80 @@ function renderMarkdownDocument(markdown) {
   const lines = safe.split("\n");
   const html = [];
   let listType = "";
+  let listItems = [];
+  let paragraphLines = [];
+
+  const joinWrappedLines = (wrappedLines) => wrappedLines.reduce((joined, rawLine) => {
+    const line = rawLine.trim();
+    if (!joined) {
+      return line;
+    }
+    if (joined.endsWith("-") && /^[a-z]/.test(line)) {
+      return `${joined.slice(0, -1)}${line}`;
+    }
+    return `${joined} ${line}`;
+  }, "");
+
+  const flushParagraph = () => {
+    if (!paragraphLines.length) {
+      return;
+    }
+    html.push(`<p>${inlineMarkdown(joinWrappedLines(paragraphLines))}</p>`);
+    paragraphLines = [];
+  };
+
   const closeList = () => {
     if (listType) {
-      html.push(`</${listType}>`);
+      html.push(`<${listType}>${listItems.map((item) => `<li>${inlineMarkdown(joinWrappedLines(item))}</li>`).join("")}</${listType}>`);
       listType = "";
+      listItems = [];
     }
   };
-  lines.forEach((line) => {
+
+  const flushBlocks = () => {
+    flushParagraph();
+    closeList();
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
-    const unordered = line.match(/^[-*]\s+(.+)$/);
+    const unordered = line.match(/^(?:[-*•])\s*(.+)$/);
     const ordered = line.match(/^\d+\.\s+(.+)$/);
+    const numberedSection = line.match(/^(\d+(?:\.\d+)*)\s+([A-Z][^.!?]{2,80})$/);
+    const namedSection = line.match(/^(Abstract|Introduction|Background|Related work|Methods?|Methodology|Experimental setup|Experiments?|Results?|Discussion|Limitations?|Conclusion|Conclusions|References|Acknowledg(?:e)?ments?|Contributions)\.?$/i);
+
     if (heading) {
-      closeList();
+      flushBlocks();
       const level = heading[1].length;
-      html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+      if (/^Page\s+\d+$/i.test(heading[2])) {
+        html.push(`<div class="paper-page-break"><span>${heading[2]}</span></div>`);
+      } else {
+        html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
+      }
+    } else if (numberedSection || namedSection) {
+      flushBlocks();
+      html.push(`<h2>${inlineMarkdown(line.replace(/\.$/, ""))}</h2>`);
     } else if (unordered || ordered) {
       const nextType = unordered ? "ul" : "ol";
+      flushParagraph();
       if (listType !== nextType) {
         closeList();
         listType = nextType;
-        html.push(`<${listType}>`);
       }
-      html.push(`<li>${inlineMarkdown((unordered || ordered)[1])}</li>`);
-    } else if (line.trim()) {
-      closeList();
-      html.push(`<p>${inlineMarkdown(line)}</p>`);
+      listItems.push([(unordered || ordered)[1]]);
+    } else if (!line) {
+      flushBlocks();
+    } else if (/^\d+$/.test(line)) {
+      flushBlocks();
+    } else if (listType && listItems.length) {
+      listItems[listItems.length - 1].push(line);
     } else {
       closeList();
+      paragraphLines.push(line);
     }
   });
-  closeList();
+  flushBlocks();
   return html.join("") || `<p class="reader-empty">This paper does not have readable text yet.</p>`;
 }
 

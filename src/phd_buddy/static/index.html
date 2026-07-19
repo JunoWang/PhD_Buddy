@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PhD Buddy</title>
-    <link rel="stylesheet" href="/static/styles.css?v=buddy-studio-1" />
+    <link rel="stylesheet" href="/static/styles.css?v=buddy-studio-4" />
   </head>
   <body>
     <main class="app-shell">
@@ -432,11 +432,19 @@
 
                     <main class="paper-reader-card">
                       <header class="paper-reader-header">
-                        <span class="paper-type">RESEARCH PAPER</span>
+                        <div class="paper-reader-label-row">
+                          <span class="paper-type">RESEARCH PAPER</span>
+                          <span class="content-status" id="paperContentStatus">Checking full content…</span>
+                        </div>
                         <h2 id="paperReaderTitle">Paper Reader</h2>
                         <p id="paperReaderMeta">Choose a paper from your readlist to begin.</p>
+                        <div class="reader-mode-picker" role="tablist" aria-label="Paper view">
+                          <button type="button" class="active" data-reader-mode="text" role="tab" aria-selected="true">Readable text</button>
+                          <button type="button" data-reader-mode="pdf" role="tab" aria-selected="false">Original PDF</button>
+                        </div>
                       </header>
                       <article class="paper-reader" id="paperReader"><p class="reader-empty">No paper selected.</p></article>
+                      <iframe class="paper-pdf-viewer" id="paperPdfViewer" title="Original paper PDF" hidden></iframe>
                     </main>
 
                     <aside class="research-chat-panel" id="researchChatPanel">
@@ -495,6 +503,6 @@
       </section>
     </main>
 
-    <script src="/static/app.js?v=buddy-studio-1" type="module"></script>
+    <script src="/static/app.js?v=buddy-studio-3" type="module"></script>
   </body>
 </html>

@@ -1,11 +1,14 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from pypdf import PdfWriter
 
 from phd_buddy.app import app
 from phd_buddy.routers import auth as auth_router
 from phd_buddy.routers import profile as profile_router
+from phd_buddy.routers import reading as reading_router
 from phd_buddy.routers import research as research_router
+from phd_buddy.storage.models import Paper, PaperAsset
 
 
 def test_signup_and_signin_use_local_user_store(tmp_path: Path, monkeypatch) -> None:
@@ -117,3 +120,38 @@ def test_health_endpoint() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_reader_exposes_full_markdown_and_original_pdf(tmp_path: Path, monkeypatch) -> None:
+    markdown_path = tmp_path / "paper.md"
+    markdown = "# Complete Paper\n\n## Page 1\n\nThe complete readable text.\n"
+    markdown_path.write_text(markdown, encoding="utf-8")
+    pdf_path = tmp_path / "paper.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    with pdf_path.open("wb") as pdf_file:
+        writer.write(pdf_file)
+
+    paper = Paper(
+        paper_id="paper-complete",
+        title="Complete Paper",
+        authors=["Ada Lovelace"],
+        year="2026",
+        assets=[
+            PaperAsset(kind="markdown", uri=str(markdown_path), created_at="now"),
+            PaperAsset(kind="pdf", uri=str(pdf_path), created_at="now"),
+        ],
+    )
+    monkeypatch.setattr(reading_router, "load_paper", lambda paper_id: paper if paper_id == paper.paper_id else None)
+    client = TestClient(app)
+
+    content = client.get("/api/reading/papers/paper-complete/content")
+    original = client.get("/api/reading/papers/paper-complete/pdf")
+
+    assert content.status_code == 200
+    assert content.json()["markdown"] == markdown
+    assert content.json()["page_count"] == 1
+    assert content.json()["source_pdf_available"] is True
+    assert original.status_code == 200
+    assert original.headers["content-type"] == "application/pdf"
+    assert original.headers["content-disposition"].startswith("inline")
