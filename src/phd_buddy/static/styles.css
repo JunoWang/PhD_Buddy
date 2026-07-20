@@ -1207,7 +1207,7 @@ body {
   background: rgba(249, 249, 247, 0.96);
   box-shadow: 0 32px 90px rgba(27, 25, 32, 0.16);
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .topbar,
@@ -1259,7 +1259,7 @@ body {
   min-height: calc(100vh - 56px);
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
-  overflow: clip;
+  overflow: visible;
   border-radius: inherit;
   background: #f7f7f5;
 }
@@ -1273,7 +1273,7 @@ body {
   align-items: center;
   gap: 36px;
   border: 0;
-  border-radius: 0;
+  border-radius: 30px 0 0 30px;
   background: #252427;
   box-shadow: none;
   padding: 22px 12px;
@@ -2122,6 +2122,161 @@ body {
   content: "";
 }
 
+.extracted-figure {
+  margin: 1.2rem 0 2.2rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(31, 29, 35, 0.08);
+}
+
+.extracted-figure-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  padding: 11px 13px;
+}
+
+.extracted-figure-label span {
+  color: #6b6472;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.extracted-figure-label strong {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.extracted-figure img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 720px;
+  height: auto;
+  margin: 18px auto;
+  background: #fff;
+  object-fit: contain;
+}
+
+.extracted-figure figcaption {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  padding: 9px 12px;
+  text-align: center;
+}
+
+.extracted-formula {
+  margin: 1.15rem 0 1.8rem;
+  overflow: hidden;
+  border: 1px solid #ded9ea;
+  border-radius: 16px;
+  background: #fbfaff;
+  box-shadow: 0 12px 28px rgba(58, 45, 82, 0.07);
+}
+
+.extracted-formula-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #e7e2ef;
+  padding: 10px 13px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.extracted-formula-label span {
+  color: #665579;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.extracted-formula-label strong {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.extracted-formula img {
+  display: block;
+  width: auto;
+  max-width: calc(100% - 32px);
+  height: auto;
+  margin: 22px auto;
+  background: #fff;
+}
+
+.extracted-formula figcaption {
+  border-top: 1px solid #e7e2ef;
+  color: var(--muted);
+  padding: 8px 12px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.extracted-table {
+  margin: 1.2rem 0 2rem;
+  overflow: hidden;
+  border: 1px solid #d9e2df;
+  border-radius: 16px;
+  background: #fbfdfc;
+  box-shadow: 0 14px 30px rgba(34, 72, 61, 0.07);
+}
+
+.extracted-table-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #dfe8e5;
+  padding: 10px 13px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.extracted-table-label span {
+  color: #42675d;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.extracted-table-label strong {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.extracted-table img {
+  display: block;
+  width: auto;
+  max-width: calc(100% - 28px);
+  max-height: 760px;
+  height: auto;
+  margin: 18px auto;
+  background: #fff;
+  object-fit: contain;
+}
+
+.extracted-table figcaption {
+  border-top: 1px solid #dfe8e5;
+  color: var(--muted);
+  padding: 8px 12px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
 .research-chat-panel {
   position: sticky;
   inset: auto;
@@ -2462,6 +2617,7 @@ body {
     min-height: auto;
     flex-direction: row;
     gap: 12px;
+    border-radius: 30px 30px 0 0;
     padding: 10px 14px;
   }
 
@@ -2571,6 +2727,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 30;
+    border-radius: 0;
   }
 
   .buddy-nav-item b,
@@ -2660,6 +2817,13 @@ body {
 
   .paper-pdf-viewer {
     min-height: 72vh;
+  }
+
+  .extracted-figure-label,
+  .extracted-formula-label,
+  .extracted-table-label {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .paper-reader {

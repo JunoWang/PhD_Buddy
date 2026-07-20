@@ -691,7 +691,13 @@ async function loadPaperMarkdown(paperId) {
     const pageSummary = content.page_count ? `${content.page_count} pages` : "Page count unavailable";
     const wordSummary = content.word_count ? `${Number(content.word_count).toLocaleString()} words` : "";
     paperReaderMeta.textContent = `${(paper.authors || []).join(", ") || "Unknown authors"}${paper.year ? ` · ${paper.year}` : ""} · ${pageSummary}${wordSummary ? ` · ${wordSummary}` : ""}`;
-    paperReader.innerHTML = renderMarkdownDocument(content.markdown);
+    paperReader.innerHTML = renderMarkdownDocument(content.markdown, {
+      paperId,
+      sourcePdfAvailable: Boolean(content.source_pdf_available),
+      figures: Array.isArray(content.figures) ? content.figures : [],
+      formulas: Array.isArray(content.formulas) ? content.formulas : [],
+      tables: Array.isArray(content.tables) ? content.tables : [],
+    });
     sourcePdfAvailable = Boolean(content.source_pdf_available);
     paperPdfViewer.src = sourcePdfAvailable
       ? `/api/reading/papers/${encodeURIComponent(paperId)}/pdf#page=1&view=FitH`
@@ -701,6 +707,7 @@ async function loadPaperMarkdown(paperId) {
       pdfButton.disabled = !sourcePdfAvailable;
     }
     updatePaperContentStatus(content);
+    setReaderMode(sourcePdfAvailable ? "pdf" : "text");
     markSelectedPaper(paperId);
     updateChatContextLine();
     researchBuddyPrompt.textContent = `I’m reading “${selectedPaperTitle}” with you. Pick a mode or ask about any claim, method, or experiment.`;
@@ -730,10 +737,10 @@ function updatePaperContentStatus(content) {
   const extractedPages = Number(content.extracted_page_count || 0);
   paperContentStatus.className = "content-status";
   if (content.source_pdf_available && content.text_extraction_complete) {
-    paperContentStatus.textContent = `Full source · ${totalPages}/${totalPages} pages extracted`;
+    paperContentStatus.textContent = `Original preserved · ${totalPages}/${totalPages} text pages`;
     paperContentStatus.classList.add("complete");
   } else if (content.source_pdf_available) {
-    paperContentStatus.textContent = `Full PDF available · ${extractedPages}/${totalPages} text pages`;
+    paperContentStatus.textContent = `Original preserved · ${extractedPages}/${totalPages} text pages`;
     paperContentStatus.classList.add("partial");
   } else {
     paperContentStatus.textContent = `${extractedPages || totalPages} text pages · source PDF unavailable`;
@@ -791,7 +798,7 @@ function saveReadingProgress() {
   localStorage.setItem("phdBuddyReadingProgress", JSON.stringify(readingProgressByPaper));
 }
 
-function renderMarkdownDocument(markdown) {
+function renderMarkdownDocument(markdown, options = {}) {
   const safe = escapeHtml(markdown || "").replace(/\r\n/g, "\n");
   const lines = safe.split("\n");
   const html = [];
@@ -836,10 +843,22 @@ function renderMarkdownDocument(markdown) {
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     const unordered = line.match(/^(?:[-*•])\s*(.+)$/);
     const ordered = line.match(/^\d+\.\s+(.+)$/);
+    const figureMarker = line.match(/^\[\[FIGURE:([a-z0-9-]+)\]\]$/i);
+    const formulaMarker = line.match(/^\[\[FORMULA:([a-z0-9-]+)\]\]$/i);
+    const tableMarker = line.match(/^\[\[TABLE:([a-z0-9-]+)\]\]$/i);
     const numberedSection = line.match(/^(\d+(?:\.\d+)*)\s+([A-Z][^.!?]{2,80})$/);
     const namedSection = line.match(/^(Abstract|Introduction|Background|Related work|Methods?|Methodology|Experimental setup|Experiments?|Results?|Discussion|Limitations?|Conclusion|Conclusions|References|Acknowledg(?:e)?ments?|Contributions)\.?$/i);
 
-    if (heading) {
+    if (tableMarker) {
+      flushBlocks();
+      html.push(renderExtractedTable(options.paperId, tableMarker[1], options.tables || []));
+    } else if (figureMarker) {
+      flushBlocks();
+      html.push(renderExtractedFigure(options.paperId, figureMarker[1], options.figures || []));
+    } else if (formulaMarker) {
+      flushBlocks();
+      html.push(renderExtractedFormula(options.paperId, formulaMarker[1], options.formulas || []));
+    } else if (heading) {
       flushBlocks();
       const level = heading[1].length;
       if (/^Page\s+\d+$/i.test(heading[2])) {
@@ -871,6 +890,51 @@ function renderMarkdownDocument(markdown) {
   });
   flushBlocks();
   return html.join("") || `<p class="reader-empty">This paper does not have readable text yet.</p>`;
+}
+
+function renderExtractedFigure(paperId, figureId, figures) {
+  const figure = figures.find((item) => item.figure_id === figureId);
+  if (!paperId || !figure) {
+    return "";
+  }
+  const figureUrl = `/api/reading/papers/${encodeURIComponent(paperId)}/figures/${encodeURIComponent(figure.figure_id)}.png`;
+  return `
+    <figure class="extracted-figure">
+      <div class="extracted-figure-label"><span>Figure ${escapeHtml(figure.number)}</span><strong>Preserved from the source PDF</strong></div>
+      <img src="${figureUrl}" loading="lazy" decoding="async" alt="${escapeHtml(figure.caption || `Figure ${figure.number}`)}" />
+      <figcaption>Standalone figure extracted from source page ${figure.page_number}</figcaption>
+    </figure>
+  `;
+}
+
+function renderExtractedFormula(paperId, formulaId, formulas) {
+  const formula = formulas.find((item) => item.formula_id === formulaId);
+  if (!paperId || !formula) {
+    return "";
+  }
+  const formulaUrl = `/api/reading/papers/${encodeURIComponent(paperId)}/formulas/${encodeURIComponent(formula.formula_id)}.png`;
+  return `
+    <figure class="extracted-formula">
+      <div class="extracted-formula-label"><span>Equation</span><strong>Original PDF notation</strong></div>
+      <img src="${formulaUrl}" loading="lazy" decoding="async" alt="Displayed equation from source page ${formula.page_number}" />
+      <figcaption>Formula rendered directly from source page ${formula.page_number}</figcaption>
+    </figure>
+  `;
+}
+
+function renderExtractedTable(paperId, tableId, tables) {
+  const table = tables.find((item) => item.table_id === tableId);
+  if (!paperId || !table) {
+    return "";
+  }
+  const tableUrl = `/api/reading/papers/${encodeURIComponent(paperId)}/tables/${encodeURIComponent(table.table_id)}.png`;
+  return `
+    <figure class="extracted-table">
+      <div class="extracted-table-label"><span>Table ${escapeHtml(table.number)}</span><strong>Original PDF layout</strong></div>
+      <img src="${tableUrl}" loading="eager" decoding="async" alt="${escapeHtml(table.caption || `Table ${table.number}`)}" />
+      <figcaption>Complete table preserved from source page ${table.page_number}</figcaption>
+    </figure>
+  `;
 }
 
 function inlineMarkdown(text) {

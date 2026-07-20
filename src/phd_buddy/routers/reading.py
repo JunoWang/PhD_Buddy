@@ -8,7 +8,18 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from ..services.acquisition import pdf_asset_path, pdf_extraction_report
+from ..services.acquisition import (
+    extract_pdf_figures,
+    extract_pdf_formulas,
+    extract_pdf_tables,
+    pdf_asset_path,
+    pdf_extraction_report,
+    pdf_to_markdown,
+    render_pdf_figure,
+    render_pdf_formula,
+    render_pdf_table,
+    render_pdf_tables,
+)
 from ..services.library import load_paper
 from ..services.paper_rag import answer_with_rag, ask_agentic, index_paper_chunks, read_paper_markdown
 
@@ -53,13 +64,26 @@ def paper_content(paper_id: str) -> dict[str, Any]:
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found.")
     markdown = read_paper_markdown(paper)
-    if not markdown:
-        raise HTTPException(status_code=404, detail="Markdown has not been created for this paper yet.")
-
     pdf_path = pdf_asset_path(paper)
+    figures: list[dict[str, Any]] = []
+    formulas: list[dict[str, Any]] = []
+    tables: list[dict[str, Any]] = []
     if pdf_path and pdf_path.exists():
+        figures = extract_pdf_figures(paper)
+        formulas = extract_pdf_formulas(paper)
+        tables = extract_pdf_tables(paper)
+        render_pdf_tables(paper, tables)
+        markdown = pdf_to_markdown(
+            pdf_path,
+            title=paper.title,
+            figures=figures,
+            formulas=formulas,
+            tables=tables,
+        )
         report = pdf_extraction_report(pdf_path, markdown)
     else:
+        if not markdown:
+            raise HTTPException(status_code=404, detail="Markdown has not been created for this paper yet.")
         page_count = markdown.count("## Page ")
         report = {
             "page_count": page_count,
@@ -72,6 +96,9 @@ def paper_content(paper_id: str) -> dict[str, Any]:
     return {
         "markdown": markdown,
         "source_pdf_available": bool(pdf_path and pdf_path.exists()),
+        "figures": figures,
+        "formulas": formulas,
+        "tables": tables,
         **report,
     }
 
@@ -92,6 +119,60 @@ def paper_pdf(paper_id: str) -> FileResponse:
         media_type="application/pdf",
         filename=f"{safe_name.strip('-') or paper.paper_id}.pdf",
         content_disposition_type="inline",
+    )
+
+
+@router.get("/papers/{paper_id}/figures/{figure_id}.png", response_class=FileResponse)
+def paper_figure_image(paper_id: str, figure_id: str) -> FileResponse:
+    """Render a detected figure by itself, preserving vector and bitmap content."""
+
+    paper = load_paper(paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found.")
+    try:
+        image_path = render_pdf_figure(paper, figure_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/papers/{paper_id}/formulas/{formula_id}.png", response_class=FileResponse)
+def paper_formula_image(paper_id: str, formula_id: str) -> FileResponse:
+    """Render a displayed formula using the source PDF's original glyph layout."""
+
+    paper = load_paper(paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found.")
+    try:
+        image_path = render_pdf_formula(paper, formula_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+
+@router.get("/papers/{paper_id}/tables/{table_id}.png", response_class=FileResponse)
+def paper_table_image(paper_id: str, table_id: str) -> FileResponse:
+    """Render a complete table and caption with their original PDF layout."""
+
+    paper = load_paper(paper_id)
+    if not paper:
+        raise HTTPException(status_code=404, detail="Paper not found.")
+    try:
+        image_path = render_pdf_table(paper, table_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return FileResponse(
+        image_path,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
     )
 
 
