@@ -1,0 +1,10 @@
+name: phd-buddy
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip>=24
+  - pip:
+      - -e .
+      - pytest>=8.4.1
+      - httpx2>=2.5.0
