@@ -6,6 +6,7 @@ the later mobile app are both clients of these routers.
 
 from . import (
     auth,
+    agents,
     checkin,
     digest,
     ideas,
@@ -21,6 +22,7 @@ from . import (
 
 ALL_ROUTERS = [
     auth.router,
+    agents.router,
     profile.router,
     library.router,
     research.router,

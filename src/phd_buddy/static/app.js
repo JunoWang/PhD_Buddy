@@ -79,6 +79,7 @@ let selectedPaperTitle = "";
 let selectedUnderstandingMode = "Explain simply";
 let readingProgressByPaper = loadReadingProgress();
 let sourcePdfAvailable = false;
+let activeBuddyThreadId = "";
 
 const storedUser = loadSession();
 if (storedUser) {
@@ -402,18 +403,22 @@ async function askResearchQuestion() {
   askResearchBuddy.textContent = "Thinking";
   paperAgentAnswer.innerHTML = `<div class="empty-state"><span>Running guardrail, retrieval, grading, and answer generation...</span></div>`;
   try {
-    const response = await fetch("/api/reading/ask-agentic", {
+    const response = await fetch("/api/agents/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: `${modePrefix}: ${message}`,
+        message: `${modePrefix}: ${message}`,
+        thread_id: activeBuddyThreadId,
         paper_id: selectedPaperId,
+        reading_context: currentReadingContext(),
       }),
     });
     if (!response.ok) {
       throw new Error(await response.text());
     }
     const data = await response.json();
+    activeBuddyThreadId = data.thread_id || activeBuddyThreadId;
+    saveBuddyThread(selectedPaperId, activeBuddyThreadId);
     appendResearchBuddyResponse(data);
   } catch (error) {
     appendChatMessage("assistant", messageFromError(error));
@@ -655,6 +660,7 @@ async function loadPaperMarkdown(paperId) {
     return;
   }
   selectedPaperId = paperId;
+  activeBuddyThreadId = buddyThreadForPaper(paperId);
   readingProgress.value = String(paperProgress(paperId));
   readingProgressLabel.textContent = `${paperProgress(paperId)}%`;
   showReaderView();
@@ -862,7 +868,8 @@ function renderMarkdownDocument(markdown, options = {}) {
       flushBlocks();
       const level = heading[1].length;
       if (/^Page\s+\d+$/i.test(heading[2])) {
-        html.push(`<div class="paper-page-break"><span>${heading[2]}</span></div>`);
+        const pageNumber = heading[2].match(/\d+/)?.[0] || "";
+        html.push(`<div class="paper-page-break" data-page-number="${pageNumber}"><span>${heading[2]}</span></div>`);
       } else {
         html.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`);
       }
@@ -899,7 +906,7 @@ function renderExtractedFigure(paperId, figureId, figures) {
   }
   const figureUrl = `/api/reading/papers/${encodeURIComponent(paperId)}/figures/${encodeURIComponent(figure.figure_id)}.png`;
   return `
-    <figure class="extracted-figure">
+    <figure class="extracted-figure" data-source-id="${escapeHtml(figure.figure_id)}">
       <div class="extracted-figure-label"><span>Figure ${escapeHtml(figure.number)}</span><strong>Preserved from the source PDF</strong></div>
       <img src="${figureUrl}" loading="lazy" decoding="async" alt="${escapeHtml(figure.caption || `Figure ${figure.number}`)}" />
       <figcaption>Standalone figure extracted from source page ${figure.page_number}</figcaption>
@@ -914,7 +921,7 @@ function renderExtractedFormula(paperId, formulaId, formulas) {
   }
   const formulaUrl = `/api/reading/papers/${encodeURIComponent(paperId)}/formulas/${encodeURIComponent(formula.formula_id)}.png`;
   return `
-    <figure class="extracted-formula">
+    <figure class="extracted-formula" data-source-id="${escapeHtml(formula.formula_id)}">
       <div class="extracted-formula-label"><span>Equation</span><strong>Original PDF notation</strong></div>
       <img src="${formulaUrl}" loading="lazy" decoding="async" alt="Displayed equation from source page ${formula.page_number}" />
       <figcaption>Formula rendered directly from source page ${formula.page_number}</figcaption>
@@ -929,7 +936,7 @@ function renderExtractedTable(paperId, tableId, tables) {
   }
   const tableUrl = `/api/reading/papers/${encodeURIComponent(paperId)}/tables/${encodeURIComponent(table.table_id)}.png`;
   return `
-    <figure class="extracted-table">
+    <figure class="extracted-table" data-source-id="${escapeHtml(table.table_id)}">
       <div class="extracted-table-label"><span>Table ${escapeHtml(table.number)}</span><strong>Original PDF layout</strong></div>
       <img src="${tableUrl}" loading="eager" decoding="async" alt="${escapeHtml(table.caption || `Table ${table.number}`)}" />
       <figcaption>Complete table preserved from source page ${table.page_number}</figcaption>
@@ -954,6 +961,65 @@ function updateChatContextLine() {
   chatContextLine.textContent = selectedPaperTitle
     ? `${selectedUnderstandingMode} · ${selectedPaperTitle}`
     : `${selectedUnderstandingMode} · all imported papers`;
+}
+
+function currentReadingContext() {
+  const referenceLine = Math.max(120, window.innerHeight * 0.35);
+  let pageNumber = "";
+  let section = "";
+  let visibleElementId = "";
+  paperReader.querySelectorAll("[data-page-number]").forEach((element) => {
+    if (element.getBoundingClientRect().top <= referenceLine) {
+      pageNumber = element.dataset.pageNumber || pageNumber;
+    }
+  });
+  paperReader.querySelectorAll("h1, h2, h3").forEach((element) => {
+    if (element.getBoundingClientRect().top <= referenceLine) {
+      section = element.textContent.trim() || section;
+    }
+  });
+  let closestDistance = Number.POSITIVE_INFINITY;
+  paperReader.querySelectorAll("[data-source-id]").forEach((element) => {
+    const rect = element.getBoundingClientRect();
+    const distance = Math.abs(rect.top - referenceLine);
+    if (rect.bottom >= 0 && rect.top <= window.innerHeight && distance < closestDistance) {
+      closestDistance = distance;
+      visibleElementId = element.dataset.sourceId || "";
+    }
+  });
+  return {
+    page_number: pageNumber,
+    section,
+    visible_element_id: visibleElementId,
+  };
+}
+
+function buddyThreadForPaper(paperId) {
+  const key = paperId || "workspace";
+  try {
+    const threads = JSON.parse(localStorage.getItem("phdBuddyAgentThreads") || "{}") || {};
+    if (!threads[key]) {
+      threads[key] = crypto.randomUUID();
+      localStorage.setItem("phdBuddyAgentThreads", JSON.stringify(threads));
+    }
+    return threads[key];
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function saveBuddyThread(paperId, threadId) {
+  if (!threadId) {
+    return;
+  }
+  const key = paperId || "workspace";
+  try {
+    const threads = JSON.parse(localStorage.getItem("phdBuddyAgentThreads") || "{}") || {};
+    threads[key] = threadId;
+    localStorage.setItem("phdBuddyAgentThreads", JSON.stringify(threads));
+  } catch {
+    // Conversation still works for this page load when local storage is unavailable.
+  }
 }
 
 function renderDashboardPaperCards(papers) {
